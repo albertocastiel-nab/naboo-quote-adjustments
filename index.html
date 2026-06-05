@@ -1,681 +1,460 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Naboo · Réconciliation Devis ↔ Facture</title>
+<title>Quote ↔ Invoice Reconciliation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
-    --bg:#0f1115; --panel:#171a21; --panel2:#1f242e; --line:#2a303c;
-    --txt:#e8ebf0; --muted:#9aa3b2; --accent:#5b8cff; --accent2:#3a6df0;
-    --green:#2fbf71; --green-bg:#16331f; --red:#ff5d5d; --red-bg:#3a1a1a;
-    --amber:#ffb347; --amber-bg:#3a2e16;
+    --bg:rgb(247,247,247); --fg:rgb(31,35,33); --card:#fff;
+    --border:rgb(231,230,228); --muted:rgb(245,245,243); --muted-fg:rgb(140,140,138);
+    --primary:rgb(182,219,102); --primary-strong:rgb(165,205,79);
+    --primary-soft:rgba(182,219,102,.25);
+    --warning:hsl(32 95% 58%); --dest:hsl(0 72% 51%);
+    --radius:12px; --radius-sm:10px;
+    --shadow:none; --shadow-lg:none;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
-  header{padding:20px 28px;border-bottom:1px solid var(--line);display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-  header h1{font-size:18px;margin:0;font-weight:650}
-  header .sub{color:var(--muted);font-size:13px}
-  main{max-width:1180px;margin:0 auto;padding:24px 28px 80px}
-  .steps{display:flex;gap:8px;margin:0 0 24px;flex-wrap:wrap}
-  .steps .pill{padding:6px 12px;border:1px solid var(--line);border-radius:20px;color:var(--muted);font-size:12.5px}
-  .steps .pill.active{background:var(--accent2);border-color:var(--accent2);color:#fff}
-  .steps .pill.done{border-color:var(--green);color:var(--green)}
-  section.step{display:none}
-  section.step.show{display:block}
-  .drop-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  @media(max-width:780px){.drop-grid{grid-template-columns:1fr}}
-  .dz{border:2px dashed var(--line);border-radius:12px;background:var(--panel);padding:26px;text-align:center;cursor:pointer;transition:.15s}
-  .dz:hover{border-color:var(--accent)}
-  .dz.over{border-color:var(--accent);background:#1b2230}
-  .dz.has{border-style:solid;border-color:var(--green)}
-  .dz h3{margin:0 0 6px;font-size:15px}
-  .dz .hint{color:var(--muted);font-size:12.5px}
-  .dz .fname{margin-top:10px;color:var(--green);font-size:13px;word-break:break-all}
-  .btn{background:var(--accent2);color:#fff;border:none;padding:11px 20px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer}
-  .btn:hover{background:var(--accent)}
-  .btn:disabled{background:#2a303c;color:#6b7484;cursor:not-allowed}
-  .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--txt)}
-  .btn.ghost:hover{border-color:var(--accent)}
-  .btn.sm{padding:5px 11px;font-size:12.5px;border-radius:7px}
-  .bar{display:flex;gap:10px;align-items:center;margin-top:20px;flex-wrap:wrap}
-  .doc-block{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:20px}
-  .doc-head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:12px;flex-wrap:wrap}
-  .doc-head h3{margin:0;font-size:15px}
-  .badge{padding:4px 10px;border-radius:7px;font-size:12px;font-weight:600}
-  .badge.ok{background:var(--green-bg);color:var(--green)}
-  .badge.bad{background:var(--red-bg);color:var(--red)}
-  .badge.warn{background:var(--amber-bg);color:var(--amber)}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:middle}
-  th{color:var(--muted);font-weight:600;font-size:12px}
-  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
-  input.cell{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:5px 6px;border-radius:6px;font-size:13px}
-  input.cell.num{text-align:right;font-variant-numeric:tabular-nums}
-  input.cell:focus{outline:none;border-color:var(--accent)}
-  .totals{display:flex;gap:24px;flex-wrap:wrap;margin-top:12px;color:var(--muted);font-size:13px}
-  .totals b{color:var(--txt);font-variant-numeric:tabular-nums}
-  .x{color:var(--red);background:none;border:none;cursor:pointer;font-size:15px;padding:0 4px}
-  .row-red td{background:rgba(255,93,93,.06)}
-  .mismatch{color:var(--red);font-weight:600}
-  .pos{color:var(--amber)}
-  .match-row{display:grid;grid-template-columns:1fr 30px 1fr 150px;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line)}
-  @media(max-width:780px){.match-row{grid-template-columns:1fr}}
-  .chip{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px}
-  .chip .meta{color:var(--muted);font-size:11.5px;margin-top:2px;font-variant-numeric:tabular-nums}
-  select.pair{width:100%;background:var(--panel2);border:1px solid var(--line);color:var(--txt);padding:7px;border-radius:7px;font-size:12.5px}
-  .arrow{text-align:center;color:var(--muted)}
-  .sumcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:14px;margin-bottom:22px}
-  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
-  .card .lbl{color:var(--muted);font-size:12px;margin-bottom:6px}
-  .card .val{font-size:20px;font-weight:680;font-variant-numeric:tabular-nums}
-  .card.flag{border-color:var(--red)}
-  .card .note{font-size:11.5px;color:var(--muted);margin-top:6px}
-  .adj{color:var(--amber);font-size:12.5px}
-  .muted{color:var(--muted)}
-  .err{background:var(--red-bg);color:var(--red);padding:10px 14px;border-radius:9px;margin-top:14px;font-size:13px;display:none}
-  h2.stitle{font-size:16px;margin:0 0 4px}
-  p.sdesc{color:var(--muted);margin:0 0 18px;font-size:13px}
-  .spinner{display:inline-block;width:14px;height:14px;border:2px solid #fff5;border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:15px/1.55 'DM Sans','Aeonik',-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;
+    -webkit-font-smoothing:antialiased}
+  header{padding:16px 30px;background:var(--card);border-bottom:1px solid var(--border);
+    display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+  .logo{display:inline-flex;align-items:center;color:var(--fg);line-height:0}
+  .logo svg{height:22px;width:auto;display:block}
+  .langsel{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;background:var(--card)}
+  .langsel button{background:transparent;border:none;color:var(--muted-fg);padding:6px 16px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .langsel button.active{background:var(--primary);color:var(--fg)}
+  main{max-width:1080px;margin:0 auto;padding:36px 30px 96px}
+  .pagehead{text-align:center;margin-bottom:30px}
+  .pagehead h1{font-size:32px;font-weight:500;letter-spacing:-.02em;margin:0 0 8px}
+  .pagehead p{font-size:15px;color:var(--muted-fg);margin:0 auto;max-width:620px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+  @media(max-width:740px){.grid{grid-template-columns:1fr}}
+  .dz{background:var(--card);border:1.5px dashed var(--border);border-radius:var(--radius);
+    padding:28px 24px;text-align:center;cursor:pointer;transition:border-color .15s}
+  .dz:hover{border-color:var(--primary)}
+  .dz.over{border-color:var(--primary-strong);background:hsl(79 62% 97%)}
+  .dz .ic{width:40px;height:40px;border-radius:50%;background:var(--primary-soft);display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+  .dz .ic svg{width:18px;height:18px;stroke:var(--fg)}
+  .dz h3{margin:0 0 6px;font-size:15px;font-weight:500}
+  .dz .hint{font-size:13px;color:var(--muted-fg)}
+  .files{list-style:none;margin:14px 0 0;padding:0;text-align:left}
+  .files li{display:flex;justify-content:space-between;align-items:center;background:var(--muted);
+    border-radius:10px;padding:7px 12px;margin-bottom:6px;font-size:13px}
+  .files .rm{background:none;border:none;cursor:pointer;font-size:17px;line-height:1;color:var(--muted-fg);padding:0 2px}
+  .files .rm:hover{color:var(--dest)}
+  .bar{display:flex;gap:12px;align-items:center;margin-top:26px;flex-wrap:wrap;justify-content:center}
+  .btn{background:var(--primary);color:var(--fg);border:none;height:44px;padding:0 26px;border-radius:999px;
+    font:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:background .15s;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px}
+  .btn:hover{background:var(--primary-strong)}
+  .btn:disabled{background:var(--muted);color:var(--muted-fg);cursor:not-allowed}
+  .btn.ghost{background:var(--card);color:var(--fg);border:1px solid var(--border)}
+  .btn.ghost:hover{background:var(--muted)}
+  .btn.sm{height:38px;padding:0 16px;font-size:13px}
+  .err{background:hsl(0 72% 97%);border:1px solid hsl(0 72% 85%);color:var(--dest);
+    border-radius:var(--radius-sm);padding:12px 16px;margin-top:16px;font-size:13.5px;font-weight:500;display:none;text-align:center}
+  .note{font-size:12.5px;color:var(--muted-fg);margin-top:10px}
+  /* results */
+  .resbar{display:flex;gap:12px;align-items:center;margin-bottom:22px;justify-content:flex-start}
+  .ecart{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:26px 28px;margin:0 0 30px;box-shadow:var(--shadow-lg);position:relative;overflow:hidden}
+  .ecart::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--primary)}
+  .ecart .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:var(--muted-fg)}
+  .ecart .big{font-size:46px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:4px 0 2px}
+  .ecart.pos .big{color:var(--primary-strong)} .ecart.neg .big{color:var(--dest)}
+  .ecart .exp{font-size:15px;color:var(--fg)}
+  .ecart .sub{font-size:13px;color:var(--muted-fg);margin-top:14px;border-top:1px solid var(--border);padding-top:12px;line-height:1.6}
+  h2.sec{font-size:16px;margin:30px 0 12px;font-weight:500;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+  h2.sec::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--muted-fg)}
+  h2.sec.add::before{background:var(--primary-strong)} h2.sec.rem::before{background:var(--dest)}
+  .tablewrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--border);vertical-align:top}
+  tbody tr:last-child td{border-bottom:none}
+  th{font-weight:600;font-size:12.5px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;background:var(--muted)}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  tfoot td{font-weight:700;background:var(--muted);border-top:1px solid var(--border)}
+  .tagmis{color:var(--dest);font-weight:700}
+  .empty{font-size:13.5px;color:var(--muted-fg)}
+  .hide{display:none}
+  .spinner{display:inline-block;width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--primary-strong);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:8px}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .legend{font-size:12px;color:var(--muted);margin-top:8px}
-  code{background:var(--panel2);padding:1px 5px;border-radius:4px;font-size:12px}
+  .footns{font-size:12px;color:var(--muted-fg);margin-top:34px;border-top:1px solid var(--border);padding-top:14px;line-height:1.6}
 </style>
 </head>
 <body>
 <header>
-  <h1>Réconciliation Devis ↔ Facture</h1>
-  <span class="sub">Devis client Naboo vs facture fournisseur · 100% navigateur, aucune donnée envoyée</span>
+  <a class="logo" href="#" aria-label="Naboo">
+    <svg viewBox="0 0 5868 1800" xmlns="http://www.w3.org/2000/svg" role="img">
+      <g transform="translate(0,1800) scale(0.1,-0.1)" fill="currentColor" stroke="none">
+        <path d="M25870 17928 c-693 -636 -1535 -1107 -2420 -1358 -127 -35 -395 -98 -492 -115 l-38 -6 0 -8114 0 -8115 1510 0 1510 0 0 2132 c0 1178 4 2128 9 2123 4 -6 16 -66 25 -135 83 -605 265 -1300 489 -1864 514 -1299 1310 -2121 2301 -2381 444 -116 962 -121 1513 -14 1153 224 2166 977 2845 2114 645 1081 982 2487 955 3985 -10 511 -43 890 -117 1355 -289 1795 -1097 3178 -2287 3911 -523 322 -1100 515 -1733 578 -685 69 -1246 -17 -1755 -268 -487 -241 -887 -601 -1231 -1111 -481 -712 -829 -1720 -984 -2850 -6 -44 -14 -91 -18 -105 -4 -14 -9 2298 -12 5136 l-5 5161 -65 -59z m3005 -6333 c473 -83 918 -509 1273 -1220 435 -871 687 -2031 774 -3560 16 -289 16 -1291 0 -1585 -85 -1514 -325 -2649 -746 -3515 -186 -383 -370 -650 -602 -876 -205 -198 -402 -314 -631 -371 -114 -28 -325 -30 -456 -5 -986 195 -1859 1427 -2266 3197 -171 743 -251 1506 -251 2385 1 2434 598 4295 1653 5148 378 306 879 467 1252 402z"/>
+        <path d="M6651 12040 c-870 -50 -1539 -279 -2110 -723 -135 -105 -372 -341 -485 -482 -103 -129 -269 -377 -351 -524 -290 -522 -504 -1184 -635 -1966 -22 -132 -42 -244 -44 -250 -3 -5 -5 858 -5 1918 l-1 1929 -60 -54 c-376 -334 -620 -516 -986 -736 -569 -342 -1256 -605 -1839 -704 l-135 -23 0 -5102 0 -5103 1510 0 1510 0 0 3353 c0 2863 2 3383 15 3562 124 1757 560 3045 1275 3764 311 313 634 495 1029 578 112 24 148 27 331 27 177 0 219 -3 310 -22 144 -32 287 -90 400 -163 123 -79 284 -240 369 -369 244 -369 399 -928 465 -1680 39 -442 39 -408 43 -4782 l4 -4268 1520 0 1519 0 -3 3978 c-3 4290 0 4048 -52 4495 -173 1484 -735 2494 -1665 2989 -342 183 -731 296 -1178 343 -176 19 -553 26 -751 15z"/>
+        <path d="M16070 12013 c-667 -46 -1111 -126 -1610 -293 -834 -277 -1482 -730 -1868 -1305 -439 -653 -489 -1387 -141 -2084 113 -228 226 -395 407 -603 80 -93 86 -98 123 -98 23 0 41 5 43 13 2 6 16 91 31 187 108 709 302 1410 546 1974 523 1208 1307 1921 2291 2085 368 61 765 51 1075 -29 767 -198 1239 -812 1403 -1823 63 -386 72 -645 68 -1932 l-3 -1049 -1415 -152 c-778 -83 -1482 -161 -1565 -173 -1455 -209 -2579 -707 -3248 -1440 -601 -658 -848 -1505 -711 -2446 102 -703 374 -1286 814 -1739 477 -492 1124 -818 1955 -985 568 -114 1323 -149 1835 -86 1209 150 1968 835 2260 2039 38 154 90 443 90 495 0 59 13 1 30 -140 195 -1546 1012 -2298 2618 -2408 85 -6 205 -11 268 -11 l114 0 -3 4387 c-2 4144 -4 4396 -20 4528 -10 77 -29 201 -43 275 -258 1408 -1309 2312 -3094 2659 -407 79 -825 127 -1325 151 -188 9 -810 11 -925 3z m2368 -6808 c3 -1822 -1 -2081 -38 -2407 -164 -1434 -839 -2330 -1856 -2463 -452 -59 -808 49 -1111 338 -176 169 -287 326 -418 592 -206 419 -329 904 -397 1565 -21 201 -17 923 5 1130 87 795 305 1404 672 1877 431 557 1024 868 1835 963 96 11 384 47 640 80 614 78 611 78 640 76 l25 -1 3 -1750z"/>
+        <path d="M40505 11963 c-22 -1 -103 -7 -180 -13 -690 -53 -1429 -259 -2080 -581 -1145 -565 -2063 -1477 -2688 -2669 -950 -1812 -980 -3876 -81 -5609 197 -380 425 -722 710 -1066 136 -164 520 -549 683 -685 277 -229 661 -493 890 -609 l41 -22 20 47 c11 25 20 47 20 49 0 1 -39 31 -87 66 -117 84 -292 261 -375 379 -165 234 -273 518 -323 850 -35 230 -30 636 11 960 112 886 517 2103 1197 3600 794 1749 1495 2972 2163 3775 138 166 488 516 624 625 343 273 684 435 1035 492 183 29 465 11 664 -43 40 -11 75 -18 77 -17 1 2 12 24 22 49 l20 46 -126 45 c-528 189 -1005 290 -1562 328 -131 9 -576 11 -675 3z"/>
+        <path d="M52770 11964 c-423 -29 -761 -81 -1125 -174 -1568 -401 -2880 -1420 -3712 -2883 -977 -1719 -1116 -3696 -381 -5422 495 -1161 1369 -2143 2440 -2739 l67 -37 21 40 c11 22 20 44 20 49 0 5 -35 36 -77 68 -407 303 -627 695 -710 1259 -21 148 -24 601 -5 770 64 563 187 1084 418 1775 292 871 792 2035 1369 3185 576 1147 1080 1962 1590 2575 161 193 462 495 620 622 384 308 744 469 1135 508 173 18 425 -6 585 -55 28 -8 53 -15 57 -15 7 0 51 91 46 95 -2 2 -70 27 -153 57 -475 174 -988 280 -1535 318 -130 9 -555 11 -670 4z"/>
+        <path d="M43420 11270 c-13 -28 -22 -51 -19 -53 2 -2 40 -30 84 -62 44 -32 134 -112 201 -179 288 -289 449 -652 505 -1136 16 -136 16 -521 0 -675 -75 -730 -289 -1518 -696 -2565 -399 -1025 -1037 -2383 -1563 -3325 -643 -1153 -1261 -1951 -1851 -2388 -214 -159 -468 -290 -690 -356 -166 -50 -278 -65 -471 -65 -179 0 -267 11 -428 53 l-73 19 -25 -49 -24 -49 24 -10 c474 -180 929 -288 1456 -347 207 -23 899 -26 1100 -5 588 62 1112 188 1630 394 211 84 583 266 775 378 1181 694 2076 1761 2610 3109 211 533 348 1080 409 1631 54 481 45 1033 -25 1515 -151 1050 -600 2059 -1279 2875 -446 535 -948 953 -1581 1313 l-46 26 -23 -49z"/>
+        <path d="M55681 11268 c-18 -43 -19 -53 -7 -60 45 -26 204 -159 279 -235 279 -283 436 -632 499 -1113 16 -124 16 -581 0 -730 -108 -971 -491 -2159 -1215 -3760 -1233 -2729 -2271 -4225 -3272 -4715 -386 -190 -760 -239 -1145 -151 -58 13 -113 27 -123 31 -14 6 -21 -2 -38 -40 -12 -28 -17 -51 -12 -56 17 -17 285 -110 472 -164 314 -90 632 -152 991 -192 206 -23 899 -26 1100 -5 763 79 1421 268 2075 594 931 466 1725 1175 2307 2063 628 956 995 2032 1069 3128 23 354 4 876 -47 1227 -156 1088 -611 2096 -1332 2950 -123 146 -462 486 -612 614 -268 229 -600 460 -911 634 l-56 32 -22 -52z"/>
+      </g>
+    </svg>
+  </a>
+  <div class="langsel">
+    <button id="lang_en" class="active" onclick="setLang('en')">EN</button>
+    <button id="lang_fr" onclick="setLang('fr')">FR</button>
+  </div>
 </header>
 <main>
-  <div class="steps">
-    <span class="pill active" id="pill0">Import</span>
-    <span class="pill" id="pill1">1 · Extraction</span>
-    <span class="pill" id="pill2">2 · Correspondances</span>
-    <span class="pill" id="pill3">3 · Écarts</span>
-  </div>
-
   <!-- IMPORT -->
-  <section class="step show" id="step0">
-    <div class="drop-grid">
+  <section id="importView">
+    <div class="pagehead">
+      <h1 id="h_title">Quote ↔ Invoice Reconciliation</h1>
+      <p id="h_sub"></p>
+    </div>
+    <div class="grid">
       <div class="dz" id="dzQuote">
-        <h3>Devis Naboo</h3>
-        <div class="hint">Glissez le PDF ici ou cliquez pour choisir</div>
-        <div class="fname" id="fnameQuote"></div>
-        <input type="file" accept="application/pdf,.pdf" id="fileQuote" hidden />
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M9 13h6M9 17h6"/></svg></div>
+        <h3 id="h_quote">Naboo Quote</h3>
+        <div class="hint" id="h_quoteHint"></div>
+        <ul class="files" id="filesQuote"></ul>
+        <input type="file" accept="application/pdf,.pdf" id="fileQuote" hidden multiple />
       </div>
       <div class="dz" id="dzInv">
-        <h3>Facture fournisseur</h3>
-        <div class="hint">Glissez le PDF ici ou cliquez pour choisir</div>
-        <div class="fname" id="fnameInv"></div>
-        <input type="file" accept="application/pdf,.pdf" id="fileInv" hidden />
+        <div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg></div>
+        <h3 id="h_inv">Supplier Invoice</h3>
+        <div class="hint" id="h_invHint"></div>
+        <ul class="files" id="filesInv"></ul>
+        <input type="file" accept="application/pdf,.pdf" id="fileInv" hidden multiple />
       </div>
     </div>
     <div class="bar">
-      <button class="btn" id="btnReconcile" disabled>Réconcilier</button>
-      <span class="muted" id="importStatus"></span>
+      <button class="btn" id="btnReconcile" disabled>Reconcile</button>
+      <span id="status"></span>
     </div>
-    <div class="err" id="importErr"></div>
-    <div class="legend">Le texte est extrait de la couche texte du PDF (pdf.js). Les PDF scannés sans texte ne sont pas pris en charge. Les valeurs mal lues sont corrigeables à l'étape 1.</div>
+    <div class="err" id="err"></div>
   </section>
 
-  <!-- STEP 1 -->
-  <section class="step" id="step1">
-    <h2 class="stitle">Étape 1 — Vérification de l'extraction</h2>
-    <p class="sdesc">Corrigez toute valeur mal lue, ajoutez ou supprimez des lignes. Le badge passe au vert quand la somme des HT lignes = total HT déclaré.</p>
-    <div id="extractDocs"></div>
-    <div class="bar">
-      <button class="btn ghost" onclick="goto(0)">← Retour</button>
-      <button class="btn" id="btnToMatch">Continuer vers les correspondances →</button>
-      <label class="muted" style="margin-left:6px"><input type="checkbox" id="overrideChk" /> Forcer malgré l'écart</label>
+  <!-- RESULTS -->
+  <section id="resultView" class="hide">
+    <div class="resbar">
+      <button class="btn ghost sm" id="btnBack">← <span id="h_back">New comparison</span></button>
+      <button class="btn ghost sm" id="btnCsv">Export CSV</button>
     </div>
-  </section>
 
-  <!-- STEP 2 -->
-  <section class="step" id="step2">
-    <h2 class="stitle">Étape 2 — Correspondances</h2>
-    <p class="sdesc">Correspondances proposées par similarité de description (tokens partagés + Levenshtein). Confirmez, ré-appariez ou marquez non apparié.</p>
-    <div id="matchList"></div>
-    <h3 style="font-size:14px;margin:20px 0 6px">Lignes non appariées</h3>
-    <div class="drop-grid">
-      <div class="doc-block"><div class="doc-head"><h3>Devis</h3></div><div id="unmatchedQuote" class="muted">—</div></div>
-      <div class="doc-block"><div class="doc-head"><h3>Facture</h3></div><div id="unmatchedInv" class="muted">—</div></div>
+    <div class="ecart" id="ecartCard">
+      <div class="lbl">Écart</div>
+      <div class="big" id="ecartBig">—</div>
+      <div class="exp" id="ecartExp"></div>
+      <div class="sub" id="ecartSub"></div>
     </div>
-    <div class="bar">
-      <button class="btn ghost" onclick="goto(1)">← Retour</button>
-      <button class="btn" id="btnToDiff">Confirmer les correspondances →</button>
-    </div>
-  </section>
 
-  <!-- STEP 3 -->
-  <section class="step" id="step3">
-    <h2 class="stitle">Étape 3 — Écarts &amp; ajustements Back Office</h2>
-    <p class="sdesc">Comparaison ligne à ligne. Formulations génériques, à valider avant saisie en Back Office.</p>
-    <div class="sumcards" id="sumcards"></div>
-    <div class="doc-block">
-      <table id="diffTable"><thead><tr>
-        <th>Ligne</th>
-        <th class="num">HT devis</th><th class="num">HT fourn.</th><th class="num">Δ HT</th>
-        <th class="num">TVA devis</th><th class="num">TVA fourn.</th>
-        <th class="num">Qté D/F</th>
-        <th>Ajustement suggéré</th>
-      </tr></thead><tbody></tbody></table>
-    </div>
-    <div class="bar">
-      <button class="btn ghost" onclick="goto(2)">← Retour</button>
-      <button class="btn ghost" id="btnCsv">Exporter en CSV</button>
-    </div>
+    <h2 class="sec add" id="h_toAdd">To add to the Naboo quote</h2>
+    <div class="tablewrap"><table id="tblAdd"><thead><tr><th id="h_desc1">Description</th><th class="num" id="h_amt1">Amount HT (€)</th><th id="h_why1">Reason</th></tr></thead><tbody></tbody>
+      <tfoot><tr><td id="h_total1">Total to add</td><td class="num" id="addSum">—</td><td></td></tr></tfoot></table></div>
+
+    <h2 class="sec rem" id="h_toRemove">To remove from the Naboo quote</h2>
+    <div class="tablewrap"><table id="tblRemove"><thead><tr><th id="h_desc2">Description</th><th class="num" id="h_amt2">Amount HT (€)</th><th id="h_why2">Reason</th></tr></thead><tbody></tbody>
+      <tfoot><tr><td id="h_total2">Total to remove</td><td class="num" id="remSum">—</td><td></td></tr></tfoot></table></div>
+
+    <h2 class="sec" id="h_detail">Line-by-line differences</h2>
+    <div class="tablewrap"><table id="tblDiff"><thead><tr>
+      <th id="h_desc3">Description</th>
+      <th class="num" id="h_nht">Naboo HT</th><th class="num" id="h_sht">Supplier HT</th><th class="num">Δ HT</th>
+      <th class="num" id="h_vat">VAT</th>
+    </tr></thead><tbody></tbody></table></div>
+
+    <div class="footns" id="h_foot"></div>
   </section>
 </main>
 
 <script>
-/* ============================================================
-   PURE LOGIC (deterministic, no network)
-   Exposed on window.RECON for testing.
-   ============================================================ */
-
-// French number normalization: "11 970,00 €" -> 11970.00
+/* ===================== PURE LOGIC (deterministic, no network) ===================== */
 function parseFrNumber(raw){
   if(raw==null) return null;
-  let s=String(raw);
-  // strip currency, NBSP, narrow NBSP, ordinary spaces, percent
-  s=s.replace(/[   ]/g,'').replace(/€|EUR|%/gi,'').trim();
+  let s=String(raw).replace(/[   ]/g,'').replace(/€|EUR|%/gi,'').trim();
   if(s==='') return null;
-  // keep sign, digits, separators
-  s=s.replace(/[^\d.,\-]/g,'');
-  if(s==='' || s==='-') return null;
-  const hasComma=s.includes(','), hasDot=s.includes('.');
-  if(hasComma && hasDot){
-    // last separator is decimal
-    if(s.lastIndexOf(',')>s.lastIndexOf('.')){ s=s.replace(/\./g,'').replace(',', '.'); }
-    else { s=s.replace(/,/g,''); }
-  } else if(hasComma){
-    // comma decimal if exactly 1 comma and <=2 trailing digits, else thousands
-    const parts=s.split(',');
-    if(parts.length===2 && parts[1].length>0 && parts[1].length<=2){ s=parts[0]+'.'+parts[1]; }
-    else { s=s.replace(/,/g,''); }
-  } else {
-    // only dots: if multiple dots they are thousands; if one dot with 3 trailing -> thousands
-    const parts=s.split('.');
-    if(parts.length>2){ s=parts.join(''); }
-    else if(parts.length===2 && parts[1].length===3 && parts[0].length<=3){ s=parts.join(''); }
-  }
-  const n=parseFloat(s);
-  return isNaN(n)?null:n;
-}
-
-function fmt(n){
-  if(n==null||isNaN(n)) return '—';
-  return n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  s=s.replace(/[^\d.,\-]/g,''); if(s===''||s==='-') return null;
+  const hasC=s.includes(','), hasD=s.includes('.');
+  if(hasC&&hasD){ if(s.lastIndexOf(',')>s.lastIndexOf('.')) s=s.replace(/\./g,'').replace(',','.'); else s=s.replace(/,/g,''); }
+  else if(hasC){ const p=s.split(','); if(p.length===2&&p[1].length>0&&p[1].length<=2) s=p[0]+'.'+p[1]; else s=s.replace(/,/g,''); }
+  else { const p=s.split('.'); if(p.length>2) s=p.join(''); else if(p.length===2&&p[1].length===3&&p[0].length<=3) s=p.join(''); }
+  const n=parseFloat(s); return isNaN(n)?null:n;
 }
 function round2(n){ return Math.round((n+Number.EPSILON)*100)/100; }
-
-// Reconstruct text lines from pdf.js text items grouped by Y.
 function itemsToLines(items){
   const rows=[];
-  items.forEach(it=>{
-    const str=it.str; if(str==null) return;
-    const y=Math.round(it.transform[5]);
-    const x=it.transform[4];
-    let row=rows.find(r=>Math.abs(r.y-y)<=2.2);
-    if(!row){ row={y,parts:[]}; rows.push(row); }
-    row.parts.push({x,str});
-  });
-  rows.sort((a,b)=>b.y-a.y); // top to bottom
-  return rows.map(r=>{
-    r.parts.sort((a,b)=>a.x-b.x);
-    // join with space, collapse repeated spaces
-    return r.parts.map(p=>p.str).join(' ').replace(/\s+/g,' ').trim();
-  }).filter(t=>t.length);
+  items.forEach(it=>{ const str=it.str; if(str==null)return; const y=Math.round(it.transform[5]),x=it.transform[4];
+    let r=rows.find(r=>Math.abs(r.y-y)<=2.2); if(!r){r={y,parts:[]};rows.push(r);} r.parts.push({x,str}); });
+  rows.sort((a,b)=>b.y-a.y);
+  return rows.map(r=>{ r.parts.sort((a,b)=>a.x-b.x); return r.parts.map(p=>p.str).join(' ').replace(/\s+/g,' ').trim(); }).filter(t=>t.length);
 }
-
-// Token-ize a French money/number line, returning numeric tokens (in order) and leading description.
 const VAT_SET=[0,2.1,5.5,8.5,10,20];
-// regex for a French-formatted number token
-const NUM_RE=/-?\d{1,3}(?:[   ]\d{3})*(?:[.,]\d+)?|-?\d+(?:[.,]\d+)?/g;
-
+const NUM_RE=/-?\d{1,3}(?:[   ]\d{3})*(?:[.,]\d+)?|-?\d+(?:[.,]\d+)?/g;
 function parseLineItem(line){
-  // Find all number tokens with positions
-  const nums=[]; let m;
-  const re=new RegExp(NUM_RE.source,'g');
-  while((m=re.exec(line))!==null){
-    const val=parseFrNumber(m[0]);
-    if(val!==null) nums.push({raw:m[0],val,idx:m.index});
-  }
-  if(nums.length<2) return null; // need at least qty/price-ish + a total
-  // require at least one monetary token (decimal part of 1-2 digits) — rejects titles/refs like "C-1234"
+  const nums=[]; let m; const re=new RegExp(NUM_RE.source,'g');
+  while((m=re.exec(line))!==null){ const v=parseFrNumber(m[0]); if(v!==null) nums.push({raw:m[0],val:v,idx:m.index}); }
+  if(nums.length<2) return null;
   if(!nums.some(n=>/[.,]\d{1,2}(?!\d)/.test(n.raw))) return null;
-  // description = text before first number token (trim trailing separators)
   let desc=line.slice(0,nums[0].idx).replace(/[|:•\-–—]+$/,'').trim();
   if(!desc) desc=line.replace(NUM_RE,'').replace(/[€%]/g,'').replace(/\s+/g,' ').trim();
-  if(!desc || desc.length<2) return null;
-  // skip lines that look like totals/headers
+  if(!desc||desc.length<2) return null;
   if(/^(total|sous-total|sous total|tva|montant|net [aà] payer|base|acompte|remise globale)/i.test(desc)) return null;
-  // Identify VAT among numbers: a value in VAT_SET, prefer one followed by % in the raw line
-  const vals=nums.map(n=>n.val);
   let vatIdx=-1;
-  // prefer token immediately followed by % in original line
-  for(let i=0;i<nums.length;i++){
-    const after=line.slice(nums[i].idx+nums[i].raw.length, nums[i].idx+nums[i].raw.length+2);
-    if(/\s*%/.test(after) && VAT_SET.includes(nums[i].val)){ vatIdx=i; break; }
-  }
-  if(vatIdx<0){ for(let i=0;i<nums.length;i++){ if(VAT_SET.includes(nums[i].val)){ vatIdx=i; break; } } }
-  const vat = vatIdx>=0 ? nums[vatIdx].val : null;
-  // remaining numbers (excluding vat) are monetary/qty
+  for(let i=0;i<nums.length;i++){ const after=line.slice(nums[i].idx+nums[i].raw.length, nums[i].idx+nums[i].raw.length+2);
+    if(/\s*%/.test(after)&&VAT_SET.includes(nums[i].val)){vatIdx=i;break;} }
+  if(vatIdx<0){ for(let i=0;i<nums.length;i++){ if(VAT_SET.includes(nums[i].val)){vatIdx=i;break;} } }
+  const vat=vatIdx>=0?nums[vatIdx].val:null;
   const rest=nums.filter((_,i)=>i!==vatIdx);
-  // qty heuristic: a small integer (<1000, integer) that's the smallest, typically first
-  let qty=null, qtyIdx=-1;
-  for(let i=0;i<rest.length;i++){
-    if(Number.isInteger(rest[i].val) && rest[i].val>0 && rest[i].val<1000){ qty=rest[i].val; qtyIdx=i; break; }
-  }
-  // totalHT = largest remaining monetary value (excluding the qty we picked, and excluding TTC if computable)
+  let qty=null,qtyIdx=-1;
+  for(let i=0;i<rest.length;i++){ if(Number.isInteger(rest[i].val)&&rest[i].val>0&&rest[i].val<1000){qty=rest[i].val;qtyIdx=i;break;} }
   const money=rest.filter((_,i)=>i!==qtyIdx).map(r=>r.val);
-  let totalHT=null, totalTTC=null;
+  let totalHT=null,totalTTC=null;
   if(money.length){
     const sorted=[...money].sort((a,b)=>a-b);
-    if(vat!=null && money.length>=2){
-      // try to find HT & TTC pair where TTC ≈ HT*(1+vat/100)
-      let best=null;
-      for(let i=0;i<money.length;i++) for(let j=0;j<money.length;j++){
-        if(i===j) continue;
-        const ht=money[i], expTtc=ht*(1+vat/100);
-        if(Math.abs(expTtc-money[j])<=Math.max(0.05, ht*0.012)){
-          if(!best || ht>best.ht) best={ht, ttc:money[j]};
-        }
-      }
-      if(best){ totalHT=best.ht; totalTTC=best.ttc; }
-    }
-    if(totalHT==null){ totalHT=sorted[sorted.length-1]; if(money.length>=2 && vat) { /* leave ttc null */ } }
+    if(vat!=null&&money.length>=2){ let best=null;
+      for(let i=0;i<money.length;i++)for(let j=0;j<money.length;j++){ if(i===j)continue; const ht=money[i],exp=ht*(1+vat/100);
+        if(Math.abs(exp-money[j])<=Math.max(0.05,ht*0.012)){ if(!best||ht>best.ht) best={ht,ttc:money[j]}; } }
+      if(best){totalHT=best.ht;totalTTC=best.ttc;} }
+    if(totalHT==null) totalHT=sorted[sorted.length-1];
   }
-  let puHT=null;
-  if(qty && totalHT) puHT=round2(totalHT/qty);
-  return {desc, qty, puHT, vat, totalHT:totalHT!=null?round2(totalHT):null, totalTTC:totalTTC!=null?round2(totalTTC):null};
+  return {desc,qty,vat,totalHT:totalHT!=null?round2(totalHT):null,totalTTC:totalTTC!=null?round2(totalTTC):null};
 }
-
-// Extract declared totals + VAT breakdown from full set of lines.
 function parseTotals(lines){
-  const out={totalHT:null,totalTTC:null,vatBreakdown:[]};
-  const findAmt=(line)=>{
-    const re=new RegExp(NUM_RE.source,'g'); let m,last=null;
-    while((m=re.exec(line))!==null){ const v=parseFrNumber(m[0]); if(v!==null) last=v; }
-    return last;
-  };
-  lines.forEach(line=>{
-    const l=line.toLowerCase();
-    if(/total\s+ht|montant\s+ht|total\s+h\.t\.|base\s+ht\s+totale/.test(l) && out.totalHT==null && !/tva/.test(l)){
-      const v=findAmt(line); if(v!=null) out.totalHT=v;
-    }
-    if(/(total\s+ttc|montant\s+ttc|net\s+[aà]\s+payer|total\s+t\.t\.c\.)/.test(l) && out.totalTTC==null){
-      const v=findAmt(line); if(v!=null) out.totalTTC=v;
-    }
-    // VAT breakdown rows: line must START with "TVA"/"T.V.A" or with a "rate%" token,
-    // so genuine line-items that merely contain "20%" are not captured.
-    const isBreakdownRow=/^\s*(tva|t\.v\.a)\b/.test(l) || /^\s*\d{1,2}(?:[.,]\d)?\s*%/.test(l);
-    const vm=l.match(/(\d{1,2}(?:[.,]\d)?)\s*%/);
-    if(vm && isBreakdownRow){
-      const rate=parseFrNumber(vm[1]);
-      if(rate!=null && VAT_SET.includes(rate)){
-        const re=new RegExp(NUM_RE.source,'g'); let m; const all=[];
-        while((m=re.exec(line))!==null){ const v=parseFrNumber(m[0]); if(v!==null) all.push(v); }
-        // remove the rate value occurrence
-        const ri=all.indexOf(rate); if(ri>=0) all.splice(ri,1);
-        if(all.length>=1 && !out.vatBreakdown.some(b=>b.rate===rate)){
-          // assume [base, amount] or just [amount]
-          let base=null,amount=null;
-          if(all.length>=2){ base=all[all.length-2]; amount=all[all.length-1]; }
-          else { amount=all[0]; }
-          out.vatBreakdown.push({rate,base,amount});
-        }
-      }
-    }
+  const out={totalHT:null,totalTTC:null};
+  const findAmt=(line)=>{ const re=new RegExp(NUM_RE.source,'g'); let m,last=null; while((m=re.exec(line))!==null){const v=parseFrNumber(m[0]); if(v!==null)last=v;} return last; };
+  lines.forEach(line=>{ const l=line.toLowerCase();
+    if(/total\s+ht|montant\s+ht|total\s+h\.t\.|base\s+ht\s+totale/.test(l)&&out.totalHT==null&&!/tva/.test(l)){ const v=findAmt(line); if(v!=null)out.totalHT=v; }
+    if(/(total\s+ttc|montant\s+ttc|net\s+[aà]\s+payer|total\s+t\.t\.c\.)/.test(l)&&out.totalTTC==null){ const v=findAmt(line); if(v!=null)out.totalTTC=v; }
   });
   return out;
 }
-
-// Full document parse from text lines.
 function parseDocument(lines){
-  const items=[];
-  lines.forEach(line=>{ const it=parseLineItem(line); if(it) items.push(it); });
-  const totals=parseTotals(lines);
-  return {items, totals};
+  const items=[]; lines.forEach(line=>{ const it=parseLineItem(line); if(it) items.push(it); });
+  return {items, totals:parseTotals(lines)};
 }
+function normTok(s){ return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').split(/\s+/)
+  .filter(t=>t.length>2&&!['les','des','pour','avec','par','sur','une','deux','jour','nuit','pers','personne','personnes','the','and','for'].includes(t)); }
+function levenshtein(a,b){ a=a.toLowerCase();b=b.toLowerCase(); const m=a.length,n=b.length; if(!m)return n; if(!n)return m;
+  const d=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]); for(let j=0;j<=n;j++)d[0][j]=j;
+  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1)); return d[m][n]; }
+function similarity(a,b){ const ta=new Set(normTok(a)),tb=new Set(normTok(b)); let inter=0; ta.forEach(t=>{if(tb.has(t))inter++;});
+  const uni=new Set([...ta,...tb]).size||1; const jacc=inter/uni; const lev=levenshtein(a,b),maxl=Math.max(a.length,b.length)||1;
+  return 0.65*jacc+0.35*(1-lev/maxl); }
+function autoMatch(q,s,threshold=0.34){ const cand=[];
+  q.forEach((qq,qi)=>s.forEach((ss,si)=>cand.push({qi,si,score:similarity(qq.desc,ss.desc)})));
+  cand.sort((a,b)=>b.score-a.score); const uQ=new Set(),uS=new Set(),pairs=[];
+  cand.forEach(c=>{ if(c.score<threshold)return; if(uQ.has(c.qi)||uS.has(c.si))return; uQ.add(c.qi);uS.add(c.si); pairs.push(c); });
+  return {pairs,uQ,uS}; }
 
-/* ---- fuzzy matching ---- */
-function normTok(s){
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'')
-    .replace(/[^a-z0-9 ]/g,' ').split(/\s+/)
-    .filter(t=>t.length>2 && !['les','des','pour','avec','par','sur','une','deux','jour','nuit','pers','personne','personnes'].includes(t));
-}
-function levenshtein(a,b){
-  a=a.toLowerCase();b=b.toLowerCase();
-  const m=a.length,n=b.length; if(!m)return n; if(!n)return m;
-  const d=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]);
-  for(let j=0;j<=n;j++)d[0][j]=j;
-  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++){
-    d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1));
-  }
-  return d[m][n];
-}
-function similarity(a,b){
-  const ta=new Set(normTok(a)), tb=new Set(normTok(b));
-  let inter=0; ta.forEach(t=>{ if(tb.has(t)) inter++; });
-  const uni=new Set([...ta,...tb]).size||1;
-  const jacc=inter/uni;
-  const lev=levenshtein(a,b); const maxl=Math.max(a.length,b.length)||1;
-  const levSim=1-lev/maxl;
-  return 0.65*jacc+0.35*levSim;
-}
-// Greedy best-match pairing. Returns {pairs:[{q,s,score}], threshold}
-function autoMatch(quoteItems, invItems, threshold=0.34){
-  const cand=[];
-  quoteItems.forEach((q,qi)=>invItems.forEach((s,si)=>{
-    cand.push({qi,si,score:similarity(q.desc,s.desc)});
-  }));
-  cand.sort((a,b)=>b.score-a.score);
-  const usedQ=new Set(), usedS=new Set(), pairs=[];
-  cand.forEach(c=>{
-    if(c.score<threshold) return;
-    if(usedQ.has(c.qi)||usedS.has(c.si)) return;
-    usedQ.add(c.qi); usedS.add(c.si);
-    pairs.push({qi:c.qi,si:c.si,score:c.score});
+/* Reconcile: écart = supplier − quote. Suggestions net to the écart.
+   toAdd increases the Naboo quote, toRemove decreases it. */
+function reconcile(quoteItems,invItems,quoteHT,invHT){
+  const am=autoMatch(quoteItems,invItems);
+  const toAdd=[],toRemove=[],diffRows=[];
+  am.pairs.forEach(p=>{
+    const q=quoteItems[p.qi],s=invItems[p.si];
+    const qHT=q.totalHT||0,sHT=s.totalHT||0,d=round2(sHT-qHT);
+    diffRows.push({desc:s.desc,qHT,sHT,dHT:d,qVat:q.vat,sVat:s.vat,matched:true});
+    if(d>0.005) toAdd.push({desc:q.desc,amount:d,reason:'adjust'});
+    else if(d<-0.005) toRemove.push({desc:q.desc,amount:round2(-d),reason:'adjust'});
   });
-  return {pairs, usedQ, usedS};
+  invItems.forEach((s,si)=>{ if(!am.uS.has(si)){ toAdd.push({desc:s.desc,amount:round2(s.totalHT||0),reason:'missing'});
+    diffRows.push({desc:s.desc,qHT:null,sHT:s.totalHT||0,dHT:round2(s.totalHT||0),qVat:null,sVat:s.vat,matched:false}); } });
+  quoteItems.forEach((q,qi)=>{ if(!am.uQ.has(qi)){ toRemove.push({desc:q.desc,amount:round2(q.totalHT||0),reason:'extra'});
+    diffRows.push({desc:q.desc,qHT:q.totalHT||0,sHT:null,dHT:round2(-(q.totalHT||0)),qVat:q.vat,sVat:null,matched:false}); } });
+  const addSum=round2(toAdd.reduce((a,x)=>a+x.amount,0));
+  const remSum=round2(toRemove.reduce((a,x)=>a+x.amount,0));
+  const ecartLines=round2(addSum-remSum);
+  const ecartTotals=(invHT!=null&&quoteHT!=null)?round2(invHT-quoteHT):null;
+  return {toAdd,toRemove,diffRows,addSum,remSum,ecartLines,ecartTotals};
 }
+window.RECON={parseFrNumber,round2,itemsToLines,parseLineItem,parseTotals,parseDocument,similarity,levenshtein,autoMatch,reconcile};
 
-/* ---- diff ---- */
-function computeDiff(matches, quoteItems, invItems){
-  // matches: [{qi, si}] qi/si may be null for unmatched-but-listed (we only diff confirmed pairs)
-  const rows=[]; let htDeltaSum=0, vatMismatch=0;
-  matches.forEach(m=>{
-    if(m.qi==null||m.si==null) return;
-    const q=quoteItems[m.qi], s=invItems[m.si];
-    const qHT=q.totalHT||0, sHT=s.totalHT||0;
-    const dHT=round2(qHT-sHT);
-    htDeltaSum+=dHT;
-    const vatMis=(q.vat!=null&&s.vat!=null&&q.vat!==s.vat);
-    if(vatMis) vatMismatch++;
-    let adj=[];
-    if(Math.abs(dHT)>=0.01) adj.push(`Ajuster HT ${fmt(sHT)} → ${fmt(qHT)}`);
-    if(vatMis) adj.push(`Changer TVA ${s.vat}% → ${q.vat}%`);
-    if(q.qty!=null&&s.qty!=null&&q.qty!==s.qty) adj.push(`Ajuster quantité ${s.qty} → ${q.qty}`);
-    if(!adj.length) adj.push('Aucun ajustement');
-    rows.push({desc:q.desc, qHT, sHT, dHT, qVat:q.vat, sVat:s.vat, qQty:q.qty, sQty:s.qty, vatMis, adj:adj.join(' · ')});
-  });
-  return {rows, htDeltaSum:round2(htDeltaSum), vatMismatch};
-}
-
-// Recalculated TTC delta = sum(HT*(1+vat)) per side for matched lines.
-function ttcRecalc(items){
-  let t=0; items.forEach(it=>{ if(it.totalHT!=null){ const v=it.vat!=null?it.vat:0; t+=it.totalHT*(1+v/100); }}); return round2(t);
-}
-
-window.RECON={parseFrNumber,parseLineItem,parseTotals,parseDocument,similarity,levenshtein,autoMatch,computeDiff,ttcRecalc,itemsToLines,round2};
-
-/* ============================================================
-   APP STATE + UI
-   ============================================================ */
-if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
-
-const state={
-  quoteFile:null, invFile:null,
-  quote:{items:[],totals:{}}, inv:{items:[],totals:{}},
-  matches:[] // [{qi,si}] confirmed pairings
+/* ===================== I18N ===================== */
+const I18N={
+  en:{title:'Quote ↔ Invoice Reconciliation',
+    sub:'Drop the Naboo quote and the supplier invoice (one or more PDFs each), then reconcile.',
+    privacy:'Everything runs in your browser — no file is uploaded anywhere.',
+    quote:'Naboo Quote', inv:'Supplier Invoice', hint:'Drag PDFs here or click — multiple files allowed',
+    reconcile:'Reconcile', back:'New comparison', csv:'Export CSV',
+    toAdd:'To add to the Naboo quote', toRemove:'To remove from the Naboo quote',
+    desc:'Description', amt:'Amount HT (€)', why:'Reason', totalAdd:'Total to add', totalRem:'Total to remove',
+    detail:'Line-by-line differences', nht:'Naboo HT', sht:'Supplier HT', vat:'VAT',
+    reasonMissing:'On supplier invoice, missing from quote', reasonExtra:'On quote, not invoiced by supplier',
+    reasonAdjust:'Amount differs', none:'Nothing.',
+    ecartUp:'The Naboo quote must increase by {x} to match the supplier invoice.',
+    ecartDown:'The Naboo quote must decrease by {x} to match the supplier invoice.',
+    ecartZero:'The Naboo quote already matches the supplier invoice.',
+    ecartSub:'Suggested changes net out to: +{add} − {rem} = {net}. Écart from declared totals: {tot}.',
+    ecartSubNoTot:'Suggested changes net out to: +{add} − {rem} = {net}.',
+    residual:' ⚠ Unexplained residual vs declared totals: {r} (likely a parsing gap — check the source PDFs).',
+    foot:'Amounts are HT (excl. VAT). Matching uses description similarity (shared tokens + Levenshtein); no AI, no external calls. Scanned PDFs without a text layer are not supported.',
+    errPdf:'Not a PDF: ', errText:'No text layer found in one of the files (scanned PDF?). OCR is not supported.', errRead:'PDF read error: '},
+  fr:{title:'Réconciliation Devis ↔ Facture',
+    sub:'Déposez le devis Naboo et la facture fournisseur (un ou plusieurs PDF chacun), puis réconciliez.',
+    privacy:'Tout s’exécute dans votre navigateur — aucun fichier n’est envoyé.',
+    quote:'Devis Naboo', inv:'Facture fournisseur', hint:'Glissez les PDF ici ou cliquez — plusieurs fichiers possibles',
+    reconcile:'Réconcilier', back:'Nouvelle comparaison', csv:'Exporter CSV',
+    toAdd:'À ajouter au devis Naboo', toRemove:'À retirer du devis Naboo',
+    desc:'Description', amt:'Montant HT (€)', why:'Motif', totalAdd:'Total à ajouter', totalRem:'Total à retirer',
+    detail:'Différences ligne par ligne', nht:'HT devis', sht:'HT fourn.', vat:'TVA',
+    reasonMissing:'Sur la facture fournisseur, absent du devis', reasonExtra:'Sur le devis, non facturé par le fournisseur',
+    reasonAdjust:'Montant différent', none:'Rien.',
+    ecartUp:'Le devis Naboo doit augmenter de {x} pour correspondre à la facture fournisseur.',
+    ecartDown:'Le devis Naboo doit diminuer de {x} pour correspondre à la facture fournisseur.',
+    ecartZero:'Le devis Naboo correspond déjà à la facture fournisseur.',
+    ecartSub:'Les changements proposés totalisent : +{add} − {rem} = {net}. Écart d’après les totaux déclarés : {tot}.',
+    ecartSubNoTot:'Les changements proposés totalisent : +{add} − {rem} = {net}.',
+    residual:' ⚠ Résidu non expliqué vs totaux déclarés : {r} (probable défaut de lecture — vérifiez les PDF source).',
+    foot:'Montants en HT. L’appariement repose sur la similarité des descriptions (tokens partagés + Levenshtein) ; aucune IA, aucun appel externe. Les PDF scannés sans couche texte ne sont pas pris en charge.',
+    errPdf:'Fichier non PDF : ', errText:'Couche texte introuvable dans un fichier (PDF scanné ?). L’OCR n’est pas pris en charge.', errRead:'Erreur de lecture PDF : '}
 };
-
-function $(id){return document.getElementById(id);}
-function goto(n){
-  [0,1,2,3].forEach(i=>{ $('step'+i).classList.toggle('show',i===n); });
-  for(let i=0;i<4;i++){ const p=$('pill'+i); p.classList.toggle('active',i===n); p.classList.toggle('done',i<n); }
-  window.scrollTo({top:0,behavior:'smooth'});
+let lang='en';
+function t(k){ return I18N[lang][k]; }
+function setLang(l){ lang=l; document.documentElement.lang=l;
+  document.getElementById('lang_en').classList.toggle('active',l==='en');
+  document.getElementById('lang_fr').classList.toggle('active',l==='fr');
+  applyStatic(); if(lastResult) renderResults(lastResult); }
+function applyStatic(){
+  const m={h_title:'title',h_sub:'sub',h_quote:'quote',h_inv:'inv',h_quoteHint:'hint',h_invHint:'hint',
+    h_toAdd:'toAdd',h_toRemove:'toRemove',h_desc1:'desc',h_amt1:'amt',h_why1:'why',h_total1:'totalAdd',
+    h_desc2:'desc',h_amt2:'amt',h_why2:'why',h_total2:'totalRem',h_detail:'detail',h_desc3:'desc',
+    h_nht:'nht',h_sht:'sht',h_vat:'vat',h_back:'back',h_foot:'foot'};
+  for(const id in m){ const el=document.getElementById(id); if(el) el.textContent=t(m[id]); }
+  document.getElementById('btnReconcile').textContent=t('reconcile');
+  document.getElementById('btnCsv').textContent=t('csv');
+  document.title=t('title');
 }
 
-/* ---- file drop wiring ---- */
-function wireDrop(dzId,inputId,fnameId,which){
+/* ===================== APP ===================== */
+if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
+const state={quote:[],inv:[]}; // arrays of File
+let lastResult=null;
+const $=id=>document.getElementById(id);
+
+function fmt(n){ if(n==null||isNaN(n))return '—'; return n.toLocaleString(lang==='fr'?'fr-FR':'en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function eur(n){ return fmt(n)+' €'; }
+function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function wire(dzId,inputId,which,listId){
   const dz=$(dzId),input=$(inputId);
-  dz.addEventListener('click',()=>input.click());
+  dz.addEventListener('click',e=>{ if(e.target.classList.contains('rm'))return; input.click(); });
   dz.addEventListener('dragover',e=>{e.preventDefault();dz.classList.add('over');});
   dz.addEventListener('dragleave',()=>dz.classList.remove('over'));
-  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over');
-    const f=e.dataTransfer.files[0]; if(f) setFile(f,which,dz,fnameId);});
-  input.addEventListener('change',e=>{const f=e.target.files[0]; if(f) setFile(f,which,dz,fnameId);});
+  dz.addEventListener('drop',e=>{e.preventDefault();dz.classList.remove('over'); addFiles([...e.dataTransfer.files],which,listId);});
+  input.addEventListener('change',e=>{ addFiles([...e.target.files],which,listId); input.value=''; });
 }
-function setFile(f,which,dz,fnameId){
-  if(f.type!=='application/pdf' && !/\.pdf$/i.test(f.name)){ showImportErr('Fichier non PDF: '+f.name); return; }
-  $('importErr').style.display='none';
-  if(which==='quote') state.quoteFile=f; else state.invFile=f;
-  dz.classList.add('has'); $(fnameId).textContent=f.name;
-  $('btnReconcile').disabled=!(state.quoteFile&&state.invFile);
+function addFiles(files,which,listId){
+  $('err').style.display='none';
+  files.forEach(f=>{ if(f.type!=='application/pdf'&&!/\.pdf$/i.test(f.name)){ showErr(t('errPdf')+f.name); return; }
+    if(!state[which].some(x=>x.name===f.name&&x.size===f.size)) state[which].push(f); });
+  renderFiles(which,listId);
 }
-function showImportErr(msg){ const e=$('importErr'); e.textContent=msg; e.style.display='block'; }
-wireDrop('dzQuote','fileQuote','fnameQuote','quote');
-wireDrop('dzInv','fileInv','fnameInv','inv');
+function renderFiles(which,listId){
+  const ul=$(listId); ul.innerHTML='';
+  state[which].forEach((f,i)=>{ const li=document.createElement('li');
+    li.innerHTML=`<span>${esc(f.name)}</span><button class="rm" title="remove">×</button>`;
+    li.querySelector('.rm').onclick=ev=>{ ev.stopPropagation(); state[which].splice(i,1); renderFiles(which,listId); refreshBtn(); };
+    ul.appendChild(li); });
+  refreshBtn();
+}
+function refreshBtn(){ $('btnReconcile').disabled=!(state.quote.length&&state.inv.length); }
+function showErr(m){ const e=$('err'); e.textContent=m; e.style.display='block'; }
 
-/* ---- PDF -> text -> parse ---- */
+wire('dzQuote','fileQuote','quote','filesQuote');
+wire('dzInv','fileInv','inv','filesInv');
+
 async function extractText(file){
   const buf=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-  let allLines=[];
-  for(let p=1;p<=pdf.numPages;p++){
-    const page=await pdf.getPage(p);
-    const tc=await page.getTextContent();
-    allLines=allLines.concat(RECON.itemsToLines(tc.items));
+  let lines=[];
+  for(let p=1;p<=pdf.numPages;p++){ const tc=await (await pdf.getPage(p)).getTextContent(); lines=lines.concat(RECON.itemsToLines(tc.items)); }
+  return lines;
+}
+async function parseSide(files){
+  let items=[],sideHT=0,sideTTC=0,hasTTC=false,textLen=0;
+  for(const f of files){
+    const lines=await extractText(f); textLen+=lines.join('').replace(/\s/g,'').length;
+    const doc=RECON.parseDocument(lines);
+    items=items.concat(doc.items);
+    const lineHT=RECON.round2(doc.items.reduce((a,it)=>a+(it.totalHT||0),0));
+    sideHT+=(doc.totals.totalHT!=null?doc.totals.totalHT:lineHT);
+    if(doc.totals.totalTTC!=null){ sideTTC+=doc.totals.totalTTC; hasTTC=true; }
   }
-  return allLines;
+  return {items,totalHT:RECON.round2(sideHT),totalTTC:hasTTC?RECON.round2(sideTTC):null,textLen};
 }
 
 $('btnReconcile').addEventListener('click',async()=>{
-  const btn=$('btnReconcile'); btn.disabled=true;
-  $('importStatus').innerHTML='<span class="spinner"></span>Extraction…';
+  const btn=$('btnReconcile'); btn.disabled=true; $('status').innerHTML='<span class="spinner"></span>';
   try{
-    const [qLines,iLines]=await Promise.all([extractText(state.quoteFile),extractText(state.invFile)]);
-    const qTextLen=qLines.join('').replace(/\s/g,'').length;
-    const iTextLen=iLines.join('').replace(/\s/g,'').length;
-    if(qTextLen<20||iTextLen<20){
-      showImportErr('Couche texte introuvable (PDF scanné ?). L\'OCR n\'est pas pris en charge.');
-      btn.disabled=false; $('importStatus').textContent=''; return;
-    }
-    state.quote=RECON.parseDocument(qLines);
-    state.inv=RECON.parseDocument(iLines);
-    $('importStatus').textContent='';
-    renderExtraction();
-    goto(1);
-  }catch(err){
-    showImportErr('Erreur de lecture PDF: '+err.message);
-  }finally{ btn.disabled=false; }
+    const [q,s]=await Promise.all([parseSide(state.quote),parseSide(state.inv)]);
+    if(q.textLen<20||s.textLen<20){ showErr(t('errText')); btn.disabled=false; $('status').textContent=''; return; }
+    const r=RECON.reconcile(q.items,s.items,q.totalHT,s.totalHT);
+    r.quoteTTC=q.totalTTC; r.invTTC=s.totalTTC;
+    lastResult=r; renderResults(r);
+    $('importView').classList.add('hide'); $('resultView').classList.remove('hide'); $('status').textContent='';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }catch(err){ showErr(t('errRead')+err.message); }
+  finally{ btn.disabled=false; refreshBtn(); }
 });
+$('btnBack').addEventListener('click',()=>{ $('resultView').classList.add('hide'); $('importView').classList.remove('hide'); });
 
-/* ---- STEP 1: editable extraction tables ---- */
-function renderExtraction(){
-  const wrap=$('extractDocs'); wrap.innerHTML='';
-  wrap.appendChild(docBlock('Devis Naboo','quote',state.quote));
-  wrap.appendChild(docBlock('Facture fournisseur','inv',state.inv));
-  refreshBadges();
-}
-function docBlock(title,key,doc){
-  const blk=document.createElement('div'); blk.className='doc-block';
-  blk.innerHTML=`<div class="doc-head"><h3>${title}</h3><span class="badge" id="badge_${key}"></span></div>`;
-  const tbl=document.createElement('table');
-  tbl.innerHTML=`<thead><tr>
-    <th>Description</th><th class="num">Qté</th><th class="num">PU HT</th>
-    <th class="num">TVA %</th><th class="num">Total HT</th><th class="num">Total TTC</th><th></th>
-  </tr></thead><tbody id="tb_${key}"></tbody>`;
-  blk.appendChild(tbl);
-  const totalsDiv=document.createElement('div'); totalsDiv.className='totals'; totalsDiv.id='tot_'+key;
-  blk.appendChild(totalsDiv);
-  const addBtn=document.createElement('button'); addBtn.className='btn ghost sm'; addBtn.textContent='+ Ajouter une ligne';
-  addBtn.style.marginTop='10px';
-  addBtn.onclick=()=>{ doc.items.push({desc:'Nouvelle ligne',qty:1,puHT:0,vat:20,totalHT:0,totalTTC:null}); renderRows(key,doc); refreshBadges(); };
-  blk.appendChild(addBtn);
-  setTimeout(()=>renderRows(key,doc),0);
-  return blk;
-}
-function renderRows(key,doc){
-  const tb=$('tb_'+key); tb.innerHTML='';
-  doc.items.forEach((it,i)=>{
+function reasonText(r){ return r==='missing'?t('reasonMissing'):r==='extra'?t('reasonExtra'):t('reasonAdjust'); }
+
+function renderResults(r){
+  const net=r.ecartTotals!=null?r.ecartTotals:r.ecartLines;
+  const card=$('ecartCard'); card.classList.remove('pos','neg');
+  if(net>0.005)card.classList.add('pos'); else if(net<-0.005)card.classList.add('neg');
+  $('ecartBig').textContent=(net>0?'+':'')+eur(net);
+  let exp; if(Math.abs(net)<0.005) exp=t('ecartZero');
+  else if(net>0) exp=t('ecartUp').replace('{x}',eur(net));
+  else exp=t('ecartDown').replace('{x}',eur(Math.abs(net)));
+  $('ecartExp').textContent=exp;
+
+  let sub;
+  if(r.ecartTotals!=null){
+    sub=t('ecartSub').replace('{add}',eur(r.addSum)).replace('{rem}',eur(r.remSum)).replace('{net}',(r.ecartLines>0?'+':'')+eur(r.ecartLines)).replace('{tot}',(r.ecartTotals>0?'+':'')+eur(r.ecartTotals));
+    const resid=RECON.round2(r.ecartTotals-r.ecartLines);
+    if(Math.abs(resid)>0.02) sub+=t('residual').replace('{r}',eur(resid));
+  } else {
+    sub=t('ecartSubNoTot').replace('{add}',eur(r.addSum)).replace('{rem}',eur(r.remSum)).replace('{net}',(r.ecartLines>0?'+':'')+eur(r.ecartLines));
+  }
+  $('ecartSub').textContent=sub;
+
+  fillList('tblAdd',r.toAdd,'addSum',r.addSum);
+  fillList('tblRemove',r.toRemove,'remSum',r.remSum);
+
+  const tb=$('tblDiff').querySelector('tbody'); tb.innerHTML='';
+  r.diffRows.forEach(d=>{ const vatMis=(d.qVat!=null&&d.sVat!=null&&d.qVat!==d.sVat);
     const tr=document.createElement('tr');
-    tr.innerHTML=`
-      <td><input class="cell" value="${escapeHtml(it.desc)}" data-k="desc"></td>
-      <td class="num"><input class="cell num" value="${it.qty??''}" data-k="qty"></td>
-      <td class="num"><input class="cell num" value="${it.puHT??''}" data-k="puHT"></td>
-      <td class="num"><input class="cell num" value="${it.vat??''}" data-k="vat"></td>
-      <td class="num"><input class="cell num" value="${it.totalHT??''}" data-k="totalHT"></td>
-      <td class="num"><input class="cell num" value="${it.totalTTC??''}" data-k="totalTTC"></td>
-      <td><button class="x" title="Supprimer">×</button></td>`;
-    tr.querySelectorAll('input').forEach(inp=>{
-      inp.addEventListener('input',()=>{
-        const k=inp.dataset.k;
-        if(k==='desc') it[k]=inp.value;
-        else it[k]= inp.value.trim()===''?null:RECON.parseFrNumber(inp.value);
-        updateTotalsLine(key,doc); refreshBadges();
-      });
-    });
-    tr.querySelector('.x').onclick=()=>{ doc.items.splice(i,1); renderRows(key,doc); refreshBadges(); };
-    tb.appendChild(tr);
-  });
-  updateTotalsLine(key,doc);
+    tr.innerHTML=`<td>${esc(d.desc)}</td><td class="num">${d.qHT==null?'—':fmt(d.qHT)}</td><td class="num">${d.sHT==null?'—':fmt(d.sHT)}</td>`+
+      `<td class="num">${(d.dHT>0?'+':'')+fmt(d.dHT)}</td>`+
+      `<td class="num ${vatMis?'tagmis':''}">${d.qVat??'—'}% / ${d.sVat??'—'}%</td>`;
+    tb.appendChild(tr); });
 }
-function sumHT(doc){ return RECON.round2(doc.items.reduce((a,it)=>a+(it.totalHT||0),0)); }
-function updateTotalsLine(key,doc){
-  const d=$('tot_'+key); const s=sumHT(doc); const decl=doc.totals.totalHT;
-  d.innerHTML=`Somme HT lignes: <b>${fmt(s)} €</b> · Total HT déclaré: <b>${decl!=null?fmt(decl)+' €':'non détecté'}</b> · Total TTC déclaré: <b>${doc.totals.totalTTC!=null?fmt(doc.totals.totalTTC)+' €':'non détecté'}</b>`;
-}
-function refreshBadges(){
-  ['quote','inv'].forEach(key=>{
-    const doc=state[key]; const b=$('badge_'+key); if(!b) return;
-    const s=sumHT(doc), decl=doc.totals.totalHT;
-    if(decl==null){ b.className='badge warn'; b.textContent='⚠ Total HT déclaré non détecté'; }
-    else if(Math.abs(s-decl)<=0.02){ b.className='badge ok'; b.textContent='✓ Cohérent'; }
-    else { b.className='badge bad'; b.textContent=`✗ Écart ${fmt(s-decl)} €`; }
-  });
-}
-$('btnToMatch').addEventListener('click',()=>{
-  const ok=['quote','inv'].every(k=>{const d=state[k];return d.totals.totalHT!=null && Math.abs(sumHT(d)-d.totals.totalHT)<=0.02;});
-  if(!ok && !$('overrideChk').checked){ alert('Au moins un document ne réconcilie pas (somme HT ≠ total HT déclaré). Corrigez les lignes ou cochez « Forcer malgré l\'écart ».'); return; }
-  if(!state.quote.items.length||!state.inv.items.length){ alert('Chaque document doit avoir au moins une ligne.'); return; }
-  renderMatching(); goto(2);
-});
-
-/* ---- STEP 2: matching ---- */
-function renderMatching(){
-  const auto=RECON.autoMatch(state.quote.items,state.inv.items);
-  // initialize confirmed matches from auto pairs
-  state.matches=auto.pairs.map(p=>({qi:p.qi,si:p.si,score:p.score}));
-  // ensure every quote item has a row (matched or to-pair)
-  const matchedQ=new Set(state.matches.map(m=>m.qi));
-  state.quote.items.forEach((q,qi)=>{ if(!matchedQ.has(qi)) state.matches.push({qi,si:null,score:0}); });
-  drawMatchRows();
-}
-function drawMatchRows(){
-  const list=$('matchList'); list.innerHTML='';
-  state.matches.forEach((m,ri)=>{
-    const q=state.quote.items[m.qi];
-    const row=document.createElement('div'); row.className='match-row';
-    const scoreTxt=m.si!=null?`<span class="meta">similarité ${(m.score*100|0)}%</span>`:'';
-    row.innerHTML=`
-      <div class="chip"><div>${escapeHtml(q.desc)}</div><div class="meta">HT ${fmt(q.totalHT)} · TVA ${q.vat??'?'}%</div></div>
-      <div class="arrow">↔</div>
-      <div id="invchip_${ri}"></div>
-      <div><select class="pair" data-ri="${ri}"></select> ${scoreTxt}</div>`;
-    list.appendChild(row);
-    fillPairSelect(ri);
-  });
-  renderUnmatched();
-}
-function fillPairSelect(ri){
-  const m=state.matches[ri];
-  const sel=document.querySelector(`select.pair[data-ri="${ri}"]`);
-  sel.innerHTML='<option value="">— Non apparié —</option>'+
-    state.inv.items.map((s,si)=>`<option value="${si}" ${si===m.si?'selected':''}>${escapeHtml(trunc(s.desc,40))} · HT ${fmt(s.totalHT)}</option>`).join('');
-  sel.onchange=()=>{
-    const v=sel.value===''?null:parseInt(sel.value,10);
-    // prevent two quote rows pointing at same supplier line
-    if(v!=null) state.matches.forEach((mm,j)=>{ if(j!==ri && mm.si===v) mm.si=null; });
-    m.si=v; m.score=v!=null?RECON.similarity(state.quote.items[m.qi].desc,state.inv.items[v].desc):0;
-    drawMatchRows();
-  };
-  updateInvChip(ri);
-}
-function updateInvChip(ri){
-  const m=state.matches[ri]; const c=$('invchip_'+ri);
-  if(m.si==null){ c.innerHTML='<div class="chip muted">— aucune —</div>'; return; }
-  const s=state.inv.items[m.si];
-  c.innerHTML=`<div class="chip"><div>${escapeHtml(s.desc)}</div><div class="meta">HT ${fmt(s.totalHT)} · TVA ${s.vat??'?'}%</div></div>`;
-}
-function renderUnmatched(){
-  const usedQ=new Set(state.matches.filter(m=>m.si!=null).map(m=>m.qi));
-  const usedS=new Set(state.matches.filter(m=>m.si!=null).map(m=>m.si));
-  const uq=state.quote.items.map((q,qi)=>({q,qi})).filter(o=>!usedQ.has(o.qi));
-  const us=state.inv.items.map((s,si)=>({s,si})).filter(o=>!usedS.has(o.si));
-  $('unmatchedQuote').innerHTML=uq.length?uq.map(o=>`<div class="chip" style="margin-bottom:6px">${escapeHtml(o.q.desc)} <span class="meta">HT ${fmt(o.q.totalHT)}</span></div>`).join(''):'<span class="muted">Toutes les lignes appariées</span>';
-  $('unmatchedInv').innerHTML=us.length?us.map(o=>`<div class="chip" style="margin-bottom:6px">${escapeHtml(o.s.desc)} <span class="meta">HT ${fmt(o.s.totalHT)}</span></div>`).join(''):'<span class="muted">Toutes les lignes appariées</span>';
-}
-$('btnToDiff').addEventListener('click',()=>{ renderDiff(); goto(3); });
-
-/* ---- STEP 3: diff + summary ---- */
-let lastDiff=null;
-function renderDiff(){
-  const confirmed=state.matches.filter(m=>m.si!=null);
-  const diff=RECON.computeDiff(confirmed,state.quote.items,state.inv.items);
-  lastDiff=diff;
-  // unmatched counts
-  const usedQ=new Set(confirmed.map(m=>m.qi)), usedS=new Set(confirmed.map(m=>m.si));
-  const unmatched=(state.quote.items.length-usedQ.size)+(state.inv.items.length-usedS.size);
-
-  // TTC two ways — over matched lines only for apples-to-apples
-  const qMatchedItems=confirmed.map(m=>state.quote.items[m.qi]);
-  const sMatchedItems=confirmed.map(m=>state.inv.items[m.si]);
-  const ttcRecalcDelta=RECON.round2(RECON.ttcRecalc(qMatchedItems)-RECON.ttcRecalc(sMatchedItems));
-  const ttcDeclaredDelta=(state.quote.totals.totalTTC!=null&&state.inv.totals.totalTTC!=null)
-    ? RECON.round2(state.quote.totals.totalTTC-state.inv.totals.totalTTC):null;
-  const diverge = ttcDeclaredDelta!=null && Math.abs(ttcRecalcDelta-ttcDeclaredDelta)>0.02;
-
-  $('sumcards').innerHTML=`
-    <div class="card"><div class="lbl">Δ Total HT (devis − fourn., lignes appariées)</div><div class="val ${diff.htDeltaSum<0?'mismatch':''}">${fmt(diff.htDeltaSum)} €</div></div>
-    <div class="card ${diverge?'flag':''}"><div class="lbl">Δ Total TTC</div>
-      <div class="val">${fmt(ttcRecalcDelta)} €</div>
-      <div class="note">recalculé (HT×TVA)<br>déclaré: ${ttcDeclaredDelta!=null?fmt(ttcDeclaredDelta)+' €':'n/d'}${diverge?' · ⚠ divergence (arrondi / ancrage TTC)':''}</div></div>
-    <div class="card ${diff.vatMismatch?'flag':''}"><div class="lbl">Écarts de TVA</div><div class="val">${diff.vatMismatch}</div></div>
-    <div class="card ${unmatched?'flag':''}"><div class="lbl">Lignes non appariées</div><div class="val">${unmatched}</div></div>`;
-
-  const tb=$('diffTable').querySelector('tbody'); tb.innerHTML='';
-  diff.rows.forEach(r=>{
-    const tr=document.createElement('tr'); if(r.dHT!==0||r.vatMis) tr.className='row-red';
-    tr.innerHTML=`
-      <td>${escapeHtml(r.desc)}</td>
-      <td class="num">${fmt(r.qHT)}</td><td class="num">${fmt(r.sHT)}</td>
-      <td class="num ${r.dHT!==0?'mismatch':''}">${fmt(r.dHT)}</td>
-      <td class="num ${r.vatMis?'mismatch':''}">${r.qVat??'?'}%</td>
-      <td class="num ${r.vatMis?'mismatch':''}">${r.sVat??'?'}%</td>
-      <td class="num">${r.qQty??'—'} / ${r.sQty??'—'}</td>
-      <td class="adj">${escapeHtml(r.adj)}</td>`;
-    tb.appendChild(tr);
-  });
-  // append unmatched as informational rows
-  const usedQ2=new Set(confirmed.map(m=>m.qi)), usedS2=new Set(confirmed.map(m=>m.si));
-  state.quote.items.forEach((q,qi)=>{ if(!usedQ2.has(qi)){
-    const tr=document.createElement('tr'); tr.className='row-red';
-    tr.innerHTML=`<td>${escapeHtml(q.desc)}</td><td class="num">${fmt(q.totalHT)}</td><td class="num">—</td><td class="num pos">+${fmt(q.totalHT)}</td><td class="num">${q.vat??'?'}%</td><td class="num">—</td><td class="num">${q.qty??'—'} / —</td><td class="adj">Ligne devis sans correspondance fournisseur — vérifier (ligne manquante ou en trop)</td>`;
-    tb.appendChild(tr);
-  }});
-  state.inv.items.forEach((s,si)=>{ if(!usedS2.has(si)){
-    const tr=document.createElement('tr'); tr.className='row-red';
-    tr.innerHTML=`<td>${escapeHtml(s.desc)}</td><td class="num">—</td><td class="num">${fmt(s.totalHT)}</td><td class="num mismatch">−${fmt(s.totalHT)}</td><td class="num">—</td><td class="num">${s.vat??'?'}%</td><td class="num">— / ${s.qty??'—'}</td><td class="adj">Ligne fournisseur sans correspondance devis — Supprimer ligne en double ou ajouter au devis</td>`;
-    tb.appendChild(tr);
-  }});
+function fillList(tblId,rows,sumId,sum){
+  const tb=$(tblId).querySelector('tbody'); tb.innerHTML='';
+  if(!rows.length){ tb.innerHTML=`<tr><td colspan="3" class="empty">${t('none')}</td></tr>`; }
+  else rows.forEach(x=>{ const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${esc(x.desc)}</td><td class="num">${fmt(x.amount)}</td><td>${reasonText(x.reason)}</td>`; tb.appendChild(tr); });
+  $(sumId).textContent=fmt(sum);
 }
 $('btnCsv').addEventListener('click',()=>{
-  if(!lastDiff) return;
-  const rows=[['Description','HT devis','HT fournisseur','Delta HT','TVA devis','TVA fournisseur','Qte devis','Qte fournisseur','Ajustement']];
-  lastDiff.rows.forEach(r=>rows.push([r.desc,r.qHT,r.sHT,r.dHT,r.qVat,r.sVat,r.qQty,r.sQty,r.adj]));
+  if(!lastResult)return; const r=lastResult; const rows=[];
+  rows.push(['SECTION','Description','Amount HT','Reason']);
+  r.toAdd.forEach(x=>rows.push(['ADD',x.desc,x.amount,reasonText(x.reason)]));
+  r.toRemove.forEach(x=>rows.push(['REMOVE',x.desc,x.amount,reasonText(x.reason)]));
+  rows.push(['ECART','', (r.ecartTotals!=null?r.ecartTotals:r.ecartLines),'']);
   const csv=rows.map(r=>r.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='reconciliation.csv'; a.click();
 });
 
-/* ---- helpers ---- */
-function escapeHtml(s){return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
-function trunc(s,n){s=String(s??'');return s.length>n?s.slice(0,n-1)+'…':s;}
+applyStatic();
 </script>
 </body>
 </html>
