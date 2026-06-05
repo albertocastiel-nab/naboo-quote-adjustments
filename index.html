@@ -49,14 +49,14 @@
   .files .rm{background:none;border:none;cursor:pointer;font-size:17px;line-height:1;color:var(--muted-fg);padding:0 2px}
   .files .rm:hover{color:var(--dest)}
   .bar{display:flex;gap:12px;align-items:center;margin-top:26px;flex-wrap:wrap;justify-content:center}
-  .btn{background:var(--primary);color:var(--fg);border:none;height:44px;padding:0 26px;border-radius:999px;
-    font:inherit;font-size:14px;font-weight:500;cursor:pointer;transition:background .15s;
+  .btn{background:var(--primary);color:var(--fg);border:none;height:52px;padding:0 48px;border-radius:999px;
+    font:inherit;font-size:15px;font-weight:500;cursor:pointer;transition:background .15s;min-width:220px;
     display:inline-flex;align-items:center;justify-content:center;gap:6px}
   .btn:hover{background:var(--primary-strong)}
-  .btn:disabled{background:var(--muted);color:var(--muted-fg);cursor:not-allowed}
-  .btn.ghost{background:var(--card);color:var(--fg);border:1px solid var(--border)}
+  .btn:disabled{background:var(--primary);color:var(--fg);cursor:default}
+  .btn.ghost{background:var(--card);color:var(--fg);border:1px solid var(--border);min-width:0;height:38px;padding:0 16px;font-size:13px}
   .btn.ghost:hover{background:var(--muted)}
-  .btn.sm{height:38px;padding:0 16px;font-size:13px}
+  .btn.sm{height:38px;padding:0 16px;font-size:13px;min-width:0}
   .err{background:hsl(0 72% 97%);border:1px solid hsl(0 72% 85%);color:var(--dest);
     border-radius:var(--radius-sm);padding:12px 16px;margin-top:16px;font-size:13.5px;font-weight:500;display:none;text-align:center}
   .note{font-size:12.5px;color:var(--muted-fg);margin-top:10px}
@@ -132,7 +132,7 @@
       </div>
     </div>
     <div class="bar">
-      <button class="btn" id="btnReconcile" disabled>Reconcile</button>
+      <button class="btn" id="btnReconcile">Compare</button>
       <span id="status"></span>
     </div>
     <div class="err" id="err"></div>
@@ -276,11 +276,12 @@ window.RECON={parseFrNumber,round2,itemsToLines,parseLineItem,parseTotals,parseD
 
 /* ===================== I18N ===================== */
 const I18N={
-  en:{title:'Quote ↔ Invoice Reconciliation',
+  en:{title:'Quotes adjustments',
     sub:'Drop the Naboo quote and the supplier invoice (one or more PDFs each), then reconcile.',
+    errNeedFiles:'Add at least one PDF on each side (Naboo quote and supplier invoice).',
     privacy:'Everything runs in your browser — no file is uploaded anywhere.',
     quote:'Naboo Quote', inv:'Supplier Invoice', hint:'Drag PDFs here or click — multiple files allowed',
-    reconcile:'Reconcile', back:'New comparison', csv:'Export CSV',
+    reconcile:'Compare', back:'New comparison', csv:'Export CSV',
     toAdd:'To add to the Naboo quote', toRemove:'To remove from the Naboo quote',
     desc:'Description', amt:'Amount HT (€)', why:'Reason', totalAdd:'Total to add', totalRem:'Total to remove',
     detail:'Line-by-line differences', nht:'Naboo HT', sht:'Supplier HT', vat:'VAT',
@@ -294,11 +295,12 @@ const I18N={
     residual:' ⚠ Unexplained residual vs declared totals: {r} (likely a parsing gap — check the source PDFs).',
     foot:'Amounts are HT (excl. VAT). Matching uses description similarity (shared tokens + Levenshtein); no AI, no external calls. Scanned PDFs without a text layer are not supported.',
     errPdf:'Not a PDF: ', errText:'No text layer found in one of the files (scanned PDF?). OCR is not supported.', errRead:'PDF read error: '},
-  fr:{title:'Réconciliation Devis ↔ Facture',
+  fr:{title:'Ajustement des devis',
     sub:'Déposez le devis Naboo et la facture fournisseur (un ou plusieurs PDF chacun), puis réconciliez.',
+    errNeedFiles:'Ajoutez au moins un PDF de chaque côté (devis Naboo et facture fournisseur).',
     privacy:'Tout s’exécute dans votre navigateur — aucun fichier n’est envoyé.',
     quote:'Devis Naboo', inv:'Facture fournisseur', hint:'Glissez les PDF ici ou cliquez — plusieurs fichiers possibles',
-    reconcile:'Réconcilier', back:'Nouvelle comparaison', csv:'Exporter CSV',
+    reconcile:'Comparer', back:'Nouvelle comparaison', csv:'Exporter CSV',
     toAdd:'À ajouter au devis Naboo', toRemove:'À retirer du devis Naboo',
     desc:'Description', amt:'Montant HT (€)', why:'Motif', totalAdd:'Total à ajouter', totalRem:'Total à retirer',
     detail:'Différences ligne par ligne', nht:'HT devis', sht:'HT fourn.', vat:'TVA',
@@ -362,7 +364,7 @@ function renderFiles(which,listId){
     ul.appendChild(li); });
   refreshBtn();
 }
-function refreshBtn(){ $('btnReconcile').disabled=!(state.quote.length&&state.inv.length); }
+function refreshBtn(){ /* CTA stays permanently active (lime); validation happens on click */ }
 function showErr(m){ const e=$('err'); e.textContent=m; e.style.display='block'; }
 
 wire('dzQuote','fileQuote','quote','filesQuote');
@@ -389,6 +391,7 @@ async function parseSide(files){
 }
 
 $('btnReconcile').addEventListener('click',async()=>{
+  if(!state.quote.length||!state.inv.length){ showErr(t('errNeedFiles')); return; }
   const btn=$('btnReconcile'); btn.disabled=true; $('status').innerHTML='<span class="spinner"></span>';
   try{
     const [q,s]=await Promise.all([parseSide(state.quote),parseSide(state.inv)]);
