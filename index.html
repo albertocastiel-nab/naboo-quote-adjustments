@@ -82,7 +82,7 @@
   tfoot td{font-weight:700;background:var(--muted);border-top:1px solid var(--border)}
   .tagmis{color:var(--dest);font-weight:700}
   .empty{font-size:13.5px;color:var(--muted-fg)}
-  .hide{display:none}
+  .hide{display:none!important}
   .spinner{display:inline-block;width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--primary-strong);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:8px}
   @keyframes spin{to{transform:rotate(360deg)}}
   .footns{font-size:12px;color:var(--muted-fg);margin-top:34px;border-top:1px solid var(--border);padding-top:14px;line-height:1.6}
@@ -169,13 +169,6 @@
     <h2 class="sec rem" id="h_toRemove">To remove from the Naboo quote</h2>
     <div class="tablewrap"><table id="tblRemove"><thead><tr><th id="h_desc2">Description</th><th class="num" id="h_amt2">Amount HT (€)</th><th id="h_why2">Reason</th></tr></thead><tbody></tbody>
       <tfoot><tr><td id="h_total2">Total to remove</td><td class="num" id="remSum">—</td><td></td></tr></tfoot></table></div>
-
-    <h2 class="sec" id="h_detail">Line-by-line differences</h2>
-    <div class="tablewrap"><table id="tblDiff"><thead><tr>
-      <th id="h_desc3">Description</th>
-      <th class="num" id="h_nht">Naboo HT</th><th class="num" id="h_sht">Supplier HT</th><th class="num">Δ HT</th>
-      <th class="num" id="h_vat">VAT</th>
-    </tr></thead><tbody></tbody></table></div>
 
     <div class="feedback" id="feedback">
       <span class="fb-q" id="fb_q">Was this useful?</span>
@@ -458,14 +451,6 @@ function renderResults(r){
 
   fillList('tblAdd',r.toAdd,'addSum',r.addSum);
   fillList('tblRemove',r.toRemove,'remSum',r.remSum);
-
-  const tb=$('tblDiff').querySelector('tbody'); tb.innerHTML='';
-  r.diffRows.forEach(d=>{ const vatMis=(d.qVat!=null&&d.sVat!=null&&d.qVat!==d.sVat);
-    const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${esc(d.desc)}</td><td class="num">${d.qHT==null?'—':fmt(d.qHT)}</td><td class="num">${d.sHT==null?'—':fmt(d.sHT)}</td>`+
-      `<td class="num">${(d.dHT>0?'+':'')+fmt(d.dHT)}</td>`+
-      `<td class="num ${vatMis?'tagmis':''}">${d.qVat??'—'}% / ${d.sVat??'—'}%</td>`;
-    tb.appendChild(tr); });
 
   resetFeedback();
 }
