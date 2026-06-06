@@ -510,8 +510,9 @@ function sendFeedback(vote,reason){
   if(FEEDBACK_ENDPOINT){ try{ fetch(FEEDBACK_ENDPOINT,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)}); }catch(e){} }
   fbShowThanks();
 }
-$('fb_up').addEventListener('click',()=>{ $('fb_up').classList.add('sel'); sendFeedback('up',''); });
-$('fb_down').addEventListener('click',()=>{ $('fb_down').classList.add('sel'); $('fb_reason').classList.remove('hide'); $('fb_text').focus(); });
+function fbSelect(which){ $('fb_up').classList.toggle('sel',which==='up'); $('fb_down').classList.toggle('sel',which==='down'); }
+$('fb_up').addEventListener('click',()=>{ fbSelect('up'); $('fb_reason').classList.add('hide'); sendFeedback('up',''); });
+$('fb_down').addEventListener('click',()=>{ fbSelect('down'); $('fb_reason').classList.remove('hide'); $('fb_text').focus(); });
 $('fb_send').addEventListener('click',()=>{ const v=$('fb_text').value.trim(); if(!v){ $('fb_text').focus(); return; } sendFeedback('down',v); });
 
 applyStatic();
