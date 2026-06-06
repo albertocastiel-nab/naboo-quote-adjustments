@@ -86,6 +86,16 @@
   .spinner{display:inline-block;width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--primary-strong);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:8px}
   @keyframes spin{to{transform:rotate(360deg)}}
   .footns{font-size:12px;color:var(--muted-fg);margin-top:34px;border-top:1px solid var(--border);padding-top:14px;line-height:1.6}
+  .feedback{margin-top:30px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);padding:18px 22px;display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+  .feedback .fb-q{font-weight:500;font-size:15px}
+  .fb-btns{display:flex;gap:8px}
+  .fb-thumb{font-size:18px;line-height:1;background:var(--card);border:1px solid var(--border);border-radius:999px;width:42px;height:42px;cursor:pointer;transition:.15s}
+  .fb-thumb:hover{background:var(--muted)}
+  .fb-thumb.sel{background:var(--primary-soft);border-color:var(--primary-strong)}
+  .fb-reason{flex-basis:100%;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+  .fb-reason textarea{flex:1;min-width:260px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font:inherit;font-size:14px;color:var(--fg);resize:vertical}
+  .fb-reason textarea:focus{outline:none;border-color:var(--primary-strong)}
+  .fb-thanks{color:var(--primary-strong);font-weight:500}
 </style>
 </head>
 <body>
@@ -166,6 +176,19 @@
       <th class="num" id="h_nht">Naboo HT</th><th class="num" id="h_sht">Supplier HT</th><th class="num">Δ HT</th>
       <th class="num" id="h_vat">VAT</th>
     </tr></thead><tbody></tbody></table></div>
+
+    <div class="feedback" id="feedback">
+      <span class="fb-q" id="fb_q">Was this useful?</span>
+      <div class="fb-btns">
+        <button class="fb-thumb" id="fb_up" type="button" aria-label="thumbs up">👍</button>
+        <button class="fb-thumb" id="fb_down" type="button" aria-label="thumbs down">👎</button>
+      </div>
+      <div class="fb-reason hide" id="fb_reason">
+        <textarea id="fb_text" rows="3"></textarea>
+        <button class="btn sm" id="fb_send" type="button">Send</button>
+      </div>
+      <div class="fb-thanks hide" id="fb_thanks"></div>
+    </div>
 
     <div class="footns" id="h_foot"></div>
   </section>
@@ -294,7 +317,8 @@ const I18N={
     ecartSubNoTot:'Suggested changes net out to: +{add} − {rem} = {net}.',
     residual:' ⚠ Unexplained residual vs declared totals: {r} (likely a parsing gap — check the source PDFs).',
     foot:'Amounts are HT (excl. VAT). Matching uses description similarity (shared tokens + Levenshtein); no AI, no external calls. Scanned PDFs without a text layer are not supported.',
-    errPdf:'Not a PDF: ', errText:'No text layer found in one of the files (scanned PDF?). OCR is not supported.', errRead:'PDF read error: '},
+    errPdf:'Not a PDF: ', errText:'No text layer found in one of the files (scanned PDF?). OCR is not supported.', errRead:'PDF read error: ',
+    fbQ:'Was this comparison useful?', fbReason:'What went wrong, and why?', fbSend:'Send feedback', fbThanks:'Thanks — your feedback was recorded.'},
   fr:{title:'Ajustement des devis',
     sub:'Déposez le devis Naboo et la facture fournisseur (un ou plusieurs PDF chacun), puis réconciliez.',
     errNeedFiles:'Ajoutez au moins un PDF de chaque côté (devis Naboo et facture fournisseur).',
@@ -313,7 +337,8 @@ const I18N={
     ecartSubNoTot:'Les changements proposés totalisent : +{add} − {rem} = {net}.',
     residual:' ⚠ Résidu non expliqué vs totaux déclarés : {r} (probable défaut de lecture — vérifiez les PDF source).',
     foot:'Montants en HT. L’appariement repose sur la similarité des descriptions (tokens partagés + Levenshtein) ; aucune IA, aucun appel externe. Les PDF scannés sans couche texte ne sont pas pris en charge.',
-    errPdf:'Fichier non PDF : ', errText:'Couche texte introuvable dans un fichier (PDF scanné ?). L’OCR n’est pas pris en charge.', errRead:'Erreur de lecture PDF : '}
+    errPdf:'Fichier non PDF : ', errText:'Couche texte introuvable dans un fichier (PDF scanné ?). L’OCR n’est pas pris en charge.', errRead:'Erreur de lecture PDF : ',
+    fbQ:'Cette comparaison vous a-t-elle été utile ?', fbReason:'Qu’est-ce qui s’est trompé, et pourquoi ?', fbSend:'Envoyer', fbThanks:'Merci — votre retour a été enregistré.'}
 };
 let lang='en';
 function t(k){ return I18N[lang][k]; }
@@ -325,10 +350,13 @@ function applyStatic(){
   const m={h_title:'title',h_sub:'sub',h_quote:'quote',h_inv:'inv',h_quoteHint:'hint',h_invHint:'hint',
     h_toAdd:'toAdd',h_toRemove:'toRemove',h_desc1:'desc',h_amt1:'amt',h_why1:'why',h_total1:'totalAdd',
     h_desc2:'desc',h_amt2:'amt',h_why2:'why',h_total2:'totalRem',h_detail:'detail',h_desc3:'desc',
-    h_nht:'nht',h_sht:'sht',h_vat:'vat',h_back:'back',h_foot:'foot'};
+    h_nht:'nht',h_sht:'sht',h_vat:'vat',h_back:'back',h_foot:'foot',fb_q:'fbQ'};
   for(const id in m){ const el=document.getElementById(id); if(el) el.textContent=t(m[id]); }
   document.getElementById('btnReconcile').textContent=t('reconcile');
   document.getElementById('btnCsv').textContent=t('csv');
+  document.getElementById('fb_send').textContent=t('fbSend');
+  document.getElementById('fb_text').placeholder=t('fbReason');
+  document.getElementById('fb_thanks').textContent=t('fbThanks');
   document.title=t('title');
 }
 
@@ -438,6 +466,8 @@ function renderResults(r){
       `<td class="num">${(d.dHT>0?'+':'')+fmt(d.dHT)}</td>`+
       `<td class="num ${vatMis?'tagmis':''}">${d.qVat??'—'}% / ${d.sVat??'—'}%</td>`;
     tb.appendChild(tr); });
+
+  resetFeedback();
 }
 function fillList(tblId,rows,sumId,sum){
   const tb=$(tblId).querySelector('tbody'); tb.innerHTML='';
@@ -456,6 +486,33 @@ $('btnCsv').addEventListener('click',()=>{
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='reconciliation.csv'; a.click();
 });
+
+/* ---- feedback (👍/👎 → Google Sheet via Apps Script web app) ---- */
+const FEEDBACK_ENDPOINT='https://script.google.com/a/macros/naboo.app/s/AKfycbyFFJZzR6HOfp05ommmHMrOnachUrG_SiTGq07Beu8at8vtiplqZlphDK1tZAKDHFcm/exec';
+function resetFeedback(){
+  const fb=$('feedback');
+  fb.querySelector('.fb-q').classList.remove('hide');
+  fb.querySelector('.fb-btns').classList.remove('hide');
+  $('fb_reason').classList.add('hide'); $('fb_thanks').classList.add('hide');
+  $('fb_up').classList.remove('sel'); $('fb_down').classList.remove('sel'); $('fb_text').value='';
+}
+function fbShowThanks(){
+  const fb=$('feedback');
+  fb.querySelector('.fb-q').classList.add('hide');
+  fb.querySelector('.fb-btns').classList.add('hide');
+  $('fb_reason').classList.add('hide'); $('fb_thanks').classList.remove('hide');
+}
+function sendFeedback(vote,reason){
+  const r=lastResult||{};
+  const payload={vote,reason:reason||'',
+    ecart:(r.ecartTotals!=null?r.ecartTotals:(r.ecartLines!=null?r.ecartLines:'')),
+    add:(r.toAdd?r.toAdd.length:0), remove:(r.toRemove?r.toRemove.length:0), lang};
+  if(FEEDBACK_ENDPOINT){ try{ fetch(FEEDBACK_ENDPOINT,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)}); }catch(e){} }
+  fbShowThanks();
+}
+$('fb_up').addEventListener('click',()=>{ $('fb_up').classList.add('sel'); sendFeedback('up',''); });
+$('fb_down').addEventListener('click',()=>{ $('fb_down').classList.add('sel'); $('fb_reason').classList.remove('hide'); $('fb_text').focus(); });
+$('fb_send').addEventListener('click',()=>{ const v=$('fb_text').value.trim(); if(!v){ $('fb_text').focus(); return; } sendFeedback('down',v); });
 
 applyStatic();
 </script>
