@@ -488,17 +488,14 @@ function fbShowThanks(){
   $('fb_reason').classList.add('hide'); $('fb_thanks').classList.remove('hide');
 }
 function sendFeedback(vote,reason){
-  const r=lastResult||{};
-  const payload={vote,reason:reason||'',
-    ecart:(r.ecartTotals!=null?r.ecartTotals:(r.ecartLines!=null?r.ecartLines:'')),
-    add:(r.toAdd?r.toAdd.length:0), remove:(r.toRemove?r.toRemove.length:0), lang};
+  const payload={vote,reason:reason||''};
   if(FEEDBACK_ENDPOINT){ try{ fetch(FEEDBACK_ENDPOINT,{method:'POST',mode:'no-cors',body:JSON.stringify(payload)}); }catch(e){} }
   fbShowThanks();
 }
 function fbSelect(which){ $('fb_up').classList.toggle('sel',which==='up'); $('fb_down').classList.toggle('sel',which==='down'); }
-$('fb_up').addEventListener('click',()=>{ fbSelect('up'); $('fb_reason').classList.add('hide'); sendFeedback('up',''); });
+$('fb_up').addEventListener('click',()=>{ fbSelect('up'); $('fb_reason').classList.add('hide'); sendFeedback('good',''); });
 $('fb_down').addEventListener('click',()=>{ fbSelect('down'); $('fb_reason').classList.remove('hide'); $('fb_text').focus(); });
-$('fb_send').addEventListener('click',()=>{ const v=$('fb_text').value.trim(); if(!v){ $('fb_text').focus(); return; } sendFeedback('down',v); });
+$('fb_send').addEventListener('click',()=>{ const v=$('fb_text').value.trim(); if(!v){ $('fb_text').focus(); return; } sendFeedback('bad',v); });
 
 applyStatic();
 </script>
