@@ -156,7 +156,7 @@
     </div>
 
     <div class="ecart" id="ecartCard">
-      <div class="lbl">Écart</div>
+      <div class="lbl" id="ecartLbl">Gap</div>
       <div class="big" id="ecartBig">—</div>
       <div class="exp" id="ecartExp"></div>
       <div class="sub" id="ecartSub"></div>
@@ -313,12 +313,12 @@ const I18N={
     ecartUp:'The Naboo quote must increase by {x} to match the supplier invoice.',
     ecartDown:'The Naboo quote must decrease by {x} to match the supplier invoice.',
     ecartZero:'The Naboo quote already matches the supplier invoice.',
-    ecartSub:'Suggested changes net out to: +{add} − {rem} = {net}. Écart from declared totals: {tot}.',
+    ecartSub:'Suggested changes net out to: +{add} − {rem} = {net}. Gap from declared totals: {tot}.',
     ecartSubNoTot:'Suggested changes net out to: +{add} − {rem} = {net}.',
     residual:' ⚠ Unexplained residual vs declared totals: {r} (likely a parsing gap — check the source PDFs).',
     foot:'Amounts are HT (excl. VAT). Matching uses description similarity (shared tokens + Levenshtein); no AI, no external calls. Scanned PDFs without a text layer are not supported.',
     errPdf:'Not a PDF: ', errText:'No text layer found in one of the files (scanned PDF?). OCR is not supported.', errRead:'PDF read error: ',
-    fbQ:'Was this comparison useful?', fbReason:'What went wrong, and why?', fbSend:'Send feedback', fbThanks:'Thanks — your feedback was recorded.'},
+    fbQ:'Was this comparison useful?', fbReason:'What went wrong, and why?', fbSend:'Send feedback', fbThanks:'Thanks — your feedback was recorded.', gapLabel:'Gap'},
   fr:{title:'Ajustement des devis',
     sub:'Déposez le devis Naboo et la facture fournisseur (un ou plusieurs PDF chacun), puis réconciliez.',
     errNeedFiles:'Ajoutez au moins un PDF de chaque côté (devis Naboo et facture fournisseur).',
@@ -338,7 +338,7 @@ const I18N={
     residual:' ⚠ Résidu non expliqué vs totaux déclarés : {r} (probable défaut de lecture — vérifiez les PDF source).',
     foot:'Montants en HT. L’appariement repose sur la similarité des descriptions (tokens partagés + Levenshtein) ; aucune IA, aucun appel externe. Les PDF scannés sans couche texte ne sont pas pris en charge.',
     errPdf:'Fichier non PDF : ', errText:'Couche texte introuvable dans un fichier (PDF scanné ?). L’OCR n’est pas pris en charge.', errRead:'Erreur de lecture PDF : ',
-    fbQ:'Cette comparaison vous a-t-elle été utile ?', fbReason:'Qu’est-ce qui s’est trompé, et pourquoi ?', fbSend:'Envoyer', fbThanks:'Merci — votre retour a été enregistré.'}
+    fbQ:'Cette comparaison vous a-t-elle été utile ?', fbReason:'Qu’est-ce qui s’est trompé, et pourquoi ?', fbSend:'Envoyer', fbThanks:'Merci — votre retour a été enregistré.', gapLabel:'Écart'}
 };
 let lang='en';
 function t(k){ return I18N[lang][k]; }
@@ -350,7 +350,7 @@ function applyStatic(){
   const m={h_title:'title',h_sub:'sub',h_quote:'quote',h_inv:'inv',h_quoteHint:'hint',h_invHint:'hint',
     h_toAdd:'toAdd',h_toRemove:'toRemove',h_desc1:'desc',h_amt1:'amt',h_why1:'why',h_total1:'totalAdd',
     h_desc2:'desc',h_amt2:'amt',h_why2:'why',h_total2:'totalRem',h_detail:'detail',h_desc3:'desc',
-    h_nht:'nht',h_sht:'sht',h_vat:'vat',h_back:'back',h_foot:'foot',fb_q:'fbQ'};
+    h_nht:'nht',h_sht:'sht',h_vat:'vat',h_back:'back',h_foot:'foot',fb_q:'fbQ',ecartLbl:'gapLabel'};
   for(const id in m){ const el=document.getElementById(id); if(el) el.textContent=t(m[id]); }
   document.getElementById('btnReconcile').textContent=t('reconcile');
   document.getElementById('btnCsv').textContent=t('csv');
@@ -481,7 +481,7 @@ $('btnCsv').addEventListener('click',()=>{
   rows.push(['SECTION','Description','Amount HT','Reason']);
   r.toAdd.forEach(x=>rows.push(['ADD',x.desc,x.amount,reasonText(x.reason)]));
   r.toRemove.forEach(x=>rows.push(['REMOVE',x.desc,x.amount,reasonText(x.reason)]));
-  rows.push(['ECART','', (r.ecartTotals!=null?r.ecartTotals:r.ecartLines),'']);
+  rows.push(['GAP','', (r.ecartTotals!=null?r.ecartTotals:r.ecartLines),'']);
   const csv=rows.map(r=>r.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='reconciliation.csv'; a.click();
