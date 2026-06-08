@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Quote ↔ Invoice Reconciliation</title>
+<title>Quotes adjustments</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
@@ -14,14 +14,12 @@
     --border:rgb(231,230,228); --muted:rgb(245,245,243); --muted-fg:rgb(140,140,138);
     --primary:rgb(182,219,102); --primary-strong:rgb(165,205,79);
     --primary-soft:rgba(182,219,102,.25);
-    --warning:hsl(32 95% 58%); --dest:hsl(0 72% 51%);
+    --warning:hsl(32 90% 45%); --dest:hsl(0 72% 51%);
     --radius:12px; --radius-sm:10px;
-    --shadow:none; --shadow-lg:none;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--fg);
-    font:15px/1.55 'DM Sans','Aeonik',-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased}
+    font:15px/1.55 'DM Sans','Aeonik',-apple-system,BlinkMacSystemFont,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
   header{padding:16px 30px;background:var(--card);border-bottom:1px solid var(--border);
     display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
   .logo{display:inline-flex;align-items:center;color:var(--fg);line-height:0}
@@ -29,7 +27,7 @@
   .langsel{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;background:var(--card)}
   .langsel button{background:transparent;border:none;color:var(--muted-fg);padding:6px 16px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
   .langsel button.active{background:var(--primary);color:var(--fg)}
-  main{max-width:1080px;margin:0 auto;padding:36px 30px 96px}
+  main{max-width:1000px;margin:0 auto;padding:36px 30px 96px}
   .pagehead{text-align:center;margin-bottom:30px}
   .pagehead h1{font-size:32px;font-weight:500;letter-spacing:-.02em;margin:0 0 8px}
   .pagehead p{font-size:15px;color:var(--muted-fg);margin:0 auto;max-width:620px}
@@ -44,54 +42,41 @@
   .dz h3{margin:0 0 6px;font-size:15px;font-weight:500}
   .dz .hint{font-size:13px;color:var(--muted-fg)}
   .files{list-style:none;margin:14px 0 0;padding:0;text-align:left}
-  .files li{display:flex;justify-content:space-between;align-items:center;background:var(--muted);
-    border-radius:10px;padding:7px 12px;margin-bottom:6px;font-size:13px}
+  .files li{display:flex;justify-content:space-between;align-items:center;background:var(--muted);border-radius:10px;padding:7px 12px;margin-bottom:6px;font-size:13px}
   .files .rm{background:none;border:none;cursor:pointer;font-size:17px;line-height:1;color:var(--muted-fg);padding:0 2px}
   .files .rm:hover{color:var(--dest)}
   .bar{display:flex;gap:12px;align-items:center;margin-top:26px;flex-wrap:wrap;justify-content:center}
   .btn{background:var(--primary);color:var(--fg);border:none;height:52px;padding:0 48px;border-radius:999px;
     font:inherit;font-size:15px;font-weight:500;cursor:pointer;transition:background .15s;min-width:220px;
-    display:inline-flex;align-items:center;justify-content:center;gap:6px}
+    display:inline-flex;align-items:center;justify-content:center;gap:8px}
   .btn:hover{background:var(--primary-strong)}
-  .btn:disabled{background:var(--primary);color:var(--fg);cursor:default}
+  .btn:disabled{background:var(--primary);color:var(--fg);cursor:default;opacity:.7}
   .btn.ghost{background:var(--card);color:var(--fg);border:1px solid var(--border);min-width:0;height:38px;padding:0 16px;font-size:13px}
   .btn.ghost:hover{background:var(--muted)}
-  .btn.sm{height:38px;padding:0 16px;font-size:13px;min-width:0}
-  .err{background:hsl(0 72% 97%);border:1px solid hsl(0 72% 85%);color:var(--dest);
-    border-radius:var(--radius-sm);padding:12px 16px;margin-top:16px;font-size:13.5px;font-weight:500;display:none;text-align:center}
-  .note{font-size:12.5px;color:var(--muted-fg);margin-top:10px}
-  /* results */
-  .resbar{display:flex;gap:12px;align-items:center;margin-bottom:22px;justify-content:flex-start}
-  .ecart{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
-    padding:26px 28px;margin:0 0 30px;box-shadow:var(--shadow-lg);position:relative;overflow:hidden}
-  .ecart::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--primary)}
-  .ecart .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:var(--muted-fg)}
-  .ecart .big{font-size:46px;font-weight:700;letter-spacing:-.02em;font-variant-numeric:tabular-nums;margin:4px 0 2px}
-  .ecart.pos .big{color:var(--primary-strong)} .ecart.neg .big{color:var(--dest)}
-  .ecart .exp{font-size:15px;color:var(--fg)}
-  .ecart .sub{font-size:13px;color:var(--muted-fg);margin-top:14px;border-top:1px solid var(--border);padding-top:12px;line-height:1.6}
-  h2.sec{font-size:16px;margin:30px 0 12px;font-weight:500;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
-  h2.sec::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--muted-fg)}
-  h2.sec.add::before{background:var(--primary-strong)} h2.sec.rem::before{background:var(--dest)}
-  .tablewrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
-  table{width:100%;border-collapse:collapse;font-size:14px}
-  th,td{text-align:left;padding:11px 16px;border-bottom:1px solid var(--border);vertical-align:top}
-  tbody tr:last-child td{border-bottom:none}
-  th{font-weight:600;font-size:12.5px;color:var(--muted-fg);text-transform:uppercase;letter-spacing:.04em;background:var(--muted)}
-  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
-  tfoot td{font-weight:700;background:var(--muted);border-top:1px solid var(--border)}
-  .tagmis{color:var(--dest);font-weight:700}
-  .empty{font-size:13.5px;color:var(--muted-fg)}
-  .hide{display:none!important}
-  .spinner{display:inline-block;width:15px;height:15px;border:2px solid var(--border);border-top-color:var(--primary-strong);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-3px;margin-right:8px}
+  .err{background:hsl(0 72% 97%);border:1px solid hsl(0 72% 85%);color:var(--dest);border-radius:var(--radius-sm);
+    padding:12px 16px;margin-top:16px;font-size:13.5px;font-weight:500;display:none;text-align:center}
+  .resbar{display:flex;margin-bottom:22px}
+  .result{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:28px 30px;position:relative;overflow:hidden}
+  .result::before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;background:var(--muted-fg)}
+  .result.ok::before{background:var(--primary-strong)} .result.bad::before{background:var(--dest)} .result.warn::before{background:var(--warning)}
+  .result .lbl{font-size:12px;text-transform:uppercase;letter-spacing:.12em;font-weight:700;color:var(--muted-fg)}
+  .result .big{font-size:30px;font-weight:600;letter-spacing:-.02em;margin:8px 0 4px;line-height:1.15}
+  .result.ok .big{color:var(--primary-strong)} .result.bad .big{color:var(--dest)} .result.warn .big{color:var(--warning)}
+  .result .note{font-size:14px;color:var(--muted-fg)}
+  .nums{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:22px}
+  @media(max-width:560px){.nums{grid-template-columns:1fr}}
+  .numcard{border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px}
+  .numcard .k{font-size:12px;color:var(--muted-fg)} .numcard .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:4px}
+  .supplier{margin-top:18px;font-size:14px} .supplier b{font-weight:600}
+  .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(31,35,33,.25);border-top-color:var(--fg);border-radius:50%;animation:spin .7s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
-  .footns{font-size:12px;color:var(--muted-fg);margin-top:34px;border-top:1px solid var(--border);padding-top:14px;line-height:1.6}
-  .feedback{margin-top:30px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);padding:18px 22px;display:flex;flex-wrap:wrap;align-items:center;gap:14px}
+  .hide{display:none!important}
+  .footns{font-size:12px;color:var(--muted-fg);margin-top:30px;border-top:1px solid var(--border);padding-top:14px;line-height:1.6}
+  .feedback{margin-top:26px;border:1px solid var(--border);border-radius:var(--radius);background:var(--card);padding:18px 22px;display:flex;flex-wrap:wrap;align-items:center;gap:14px}
   .feedback .fb-q{font-weight:500;font-size:15px}
   .fb-btns{display:flex;gap:8px}
   .fb-thumb{font-size:18px;line-height:1;background:var(--card);border:1px solid var(--border);border-radius:999px;width:42px;height:42px;cursor:pointer;transition:.15s}
-  .fb-thumb:hover{background:var(--muted)}
-  .fb-thumb.sel{background:var(--primary-soft);border-color:var(--primary-strong)}
+  .fb-thumb:hover{background:var(--muted)} .fb-thumb.sel{background:var(--primary-soft);border-color:var(--primary-strong)}
   .fb-reason{flex-basis:100%;display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
   .fb-reason textarea{flex:1;min-width:260px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font:inherit;font-size:14px;color:var(--fg);resize:vertical}
   .fb-reason textarea:focus{outline:none;border-color:var(--primary-strong)}
@@ -119,10 +104,9 @@
   </div>
 </header>
 <main>
-  <!-- IMPORT -->
   <section id="importView">
     <div class="pagehead">
-      <h1 id="h_title">Quote ↔ Invoice Reconciliation</h1>
+      <h1 id="h_title">Quotes adjustments</h1>
       <p id="h_sub"></p>
     </div>
     <div class="grid">
@@ -142,33 +126,23 @@
       </div>
     </div>
     <div class="bar">
-      <button class="btn" id="btnReconcile">Compare</button>
-      <span id="status"></span>
+      <button class="btn" id="btnCompare">Compare</button>
     </div>
     <div class="err" id="err"></div>
   </section>
 
-  <!-- RESULTS -->
   <section id="resultView" class="hide">
-    <div class="resbar">
-      <button class="btn ghost sm" id="btnBack">← <span id="h_back">New comparison</span></button>
-      <button class="btn ghost sm" id="btnCsv">Export CSV</button>
+    <div class="resbar"><button class="btn ghost" id="btnBack">← <span id="h_back">New comparison</span></button></div>
+    <div class="result" id="resultCard">
+      <div class="lbl" id="h_resultLbl">Result</div>
+      <div class="big" id="resultBig">—</div>
+      <div class="note" id="resultNote"></div>
+      <div class="nums">
+        <div class="numcard"><div class="k" id="h_invK">Supplier invoice (TTC)</div><div class="v" id="invVal">—</div></div>
+        <div class="numcard"><div class="k" id="h_quoteK">Quoted for this supplier (TTC)</div><div class="v" id="quoteVal">—</div></div>
+      </div>
+      <div class="supplier" id="supplierLine"></div>
     </div>
-
-    <div class="ecart" id="ecartCard">
-      <div class="lbl" id="ecartLbl">Gap</div>
-      <div class="big" id="ecartBig">—</div>
-      <div class="exp" id="ecartExp"></div>
-      <div class="sub" id="ecartSub"></div>
-    </div>
-
-    <h2 class="sec add" id="h_toAdd">To add to the Naboo quote</h2>
-    <div class="tablewrap"><table id="tblAdd"><thead><tr><th id="h_desc1">Description</th><th class="num" id="h_amt1">Amount HT (€)</th><th id="h_why1">Reason</th></tr></thead><tbody></tbody>
-      <tfoot><tr><td id="h_total1">Total to add</td><td class="num" id="addSum">—</td><td></td></tr></tfoot></table></div>
-
-    <h2 class="sec rem" id="h_toRemove">To remove from the Naboo quote</h2>
-    <div class="tablewrap"><table id="tblRemove"><thead><tr><th id="h_desc2">Description</th><th class="num" id="h_amt2">Amount HT (€)</th><th id="h_why2">Reason</th></tr></thead><tbody></tbody>
-      <tfoot><tr><td id="h_total2">Total to remove</td><td class="num" id="remSum">—</td><td></td></tr></tfoot></table></div>
 
     <div class="feedback" id="feedback">
       <span class="fb-q" id="fb_q">Was this useful?</span>
@@ -178,7 +152,7 @@
       </div>
       <div class="fb-reason hide" id="fb_reason">
         <textarea id="fb_text" rows="3"></textarea>
-        <button class="btn sm" id="fb_send" type="button">Send</button>
+        <button class="btn ghost" id="fb_send" type="button">Send</button>
       </div>
       <div class="fb-thanks hide" id="fb_thanks"></div>
     </div>
@@ -188,181 +162,63 @@
 </main>
 
 <script>
-/* ===================== PURE LOGIC (deterministic, no network) ===================== */
-function parseFrNumber(raw){
-  if(raw==null) return null;
-  let s=String(raw).replace(/[   ]/g,'').replace(/€|EUR|%/gi,'').trim();
-  if(s==='') return null;
-  s=s.replace(/[^\d.,\-]/g,''); if(s===''||s==='-') return null;
-  const hasC=s.includes(','), hasD=s.includes('.');
-  if(hasC&&hasD){ if(s.lastIndexOf(',')>s.lastIndexOf('.')) s=s.replace(/\./g,'').replace(',','.'); else s=s.replace(/,/g,''); }
-  else if(hasC){ const p=s.split(','); if(p.length===2&&p[1].length>0&&p[1].length<=2) s=p[0]+'.'+p[1]; else s=s.replace(/,/g,''); }
-  else { const p=s.split('.'); if(p.length>2) s=p.join(''); else if(p.length===2&&p[1].length===3&&p[0].length<=3) s=p.join(''); }
-  const n=parseFloat(s); return isNaN(n)?null:n;
-}
-function round2(n){ return Math.round((n+Number.EPSILON)*100)/100; }
-function itemsToLines(items){
-  const rows=[];
-  items.forEach(it=>{ const str=it.str; if(str==null)return; const y=Math.round(it.transform[5]),x=it.transform[4];
-    let r=rows.find(r=>Math.abs(r.y-y)<=2.2); if(!r){r={y,parts:[]};rows.push(r);} r.parts.push({x,str}); });
-  rows.sort((a,b)=>b.y-a.y);
-  return rows.map(r=>{ r.parts.sort((a,b)=>a.x-b.x); return r.parts.map(p=>p.str).join(' ').replace(/\s+/g,' ').trim(); }).filter(t=>t.length);
-}
-const VAT_SET=[0,2.1,5.5,8.5,10,20];
-const NUM_RE=/-?\d{1,3}(?:[   ]\d{3})*(?:[.,]\d+)?|-?\d+(?:[.,]\d+)?/g;
-function parseLineItem(line){
-  const nums=[]; let m; const re=new RegExp(NUM_RE.source,'g');
-  while((m=re.exec(line))!==null){ const v=parseFrNumber(m[0]); if(v!==null) nums.push({raw:m[0],val:v,idx:m.index}); }
-  if(nums.length<2) return null;
-  if(!nums.some(n=>/[.,]\d{1,2}(?!\d)/.test(n.raw))) return null;
-  let desc=line.slice(0,nums[0].idx).replace(/[|:•\-–—]+$/,'').trim();
-  if(!desc) desc=line.replace(NUM_RE,'').replace(/[€%]/g,'').replace(/\s+/g,' ').trim();
-  if(!desc||desc.length<2) return null;
-  if(/^(total|sous-total|sous total|tva|montant|net [aà] payer|base|acompte|remise globale)/i.test(desc)) return null;
-  let vatIdx=-1;
-  for(let i=0;i<nums.length;i++){ const after=line.slice(nums[i].idx+nums[i].raw.length, nums[i].idx+nums[i].raw.length+2);
-    if(/\s*%/.test(after)&&VAT_SET.includes(nums[i].val)){vatIdx=i;break;} }
-  if(vatIdx<0){ for(let i=0;i<nums.length;i++){ if(VAT_SET.includes(nums[i].val)){vatIdx=i;break;} } }
-  const vat=vatIdx>=0?nums[vatIdx].val:null;
-  const rest=nums.filter((_,i)=>i!==vatIdx);
-  let qty=null,qtyIdx=-1;
-  for(let i=0;i<rest.length;i++){ if(Number.isInteger(rest[i].val)&&rest[i].val>0&&rest[i].val<1000){qty=rest[i].val;qtyIdx=i;break;} }
-  const money=rest.filter((_,i)=>i!==qtyIdx).map(r=>r.val);
-  let totalHT=null,totalTTC=null;
-  if(money.length){
-    const sorted=[...money].sort((a,b)=>a-b);
-    if(vat!=null&&money.length>=2){ let best=null;
-      for(let i=0;i<money.length;i++)for(let j=0;j<money.length;j++){ if(i===j)continue; const ht=money[i],exp=ht*(1+vat/100);
-        if(Math.abs(exp-money[j])<=Math.max(0.05,ht*0.012)){ if(!best||ht>best.ht) best={ht,ttc:money[j]}; } }
-      if(best){totalHT=best.ht;totalTTC=best.ttc;} }
-    if(totalHT==null) totalHT=sorted[sorted.length-1];
-  }
-  return {desc,qty,vat,totalHT:totalHT!=null?round2(totalHT):null,totalTTC:totalTTC!=null?round2(totalTTC):null};
-}
-function parseTotals(lines){
-  const out={totalHT:null,totalTTC:null};
-  const findAmt=(line)=>{ const re=new RegExp(NUM_RE.source,'g'); let m,last=null; while((m=re.exec(line))!==null){const v=parseFrNumber(m[0]); if(v!==null)last=v;} return last; };
-  lines.forEach(line=>{ const l=line.toLowerCase();
-    if(/total\s+ht|montant\s+ht|total\s+h\.t\.|base\s+ht\s+totale/.test(l)&&out.totalHT==null&&!/tva/.test(l)){ const v=findAmt(line); if(v!=null)out.totalHT=v; }
-    if(/(total\s+ttc|montant\s+ttc|net\s+[aà]\s+payer|total\s+t\.t\.c\.)/.test(l)&&out.totalTTC==null){ const v=findAmt(line); if(v!=null)out.totalTTC=v; }
-  });
-  return out;
-}
-function parseDocument(lines){
-  const items=[]; lines.forEach(line=>{ const it=parseLineItem(line); if(it) items.push(it); });
-  return {items, totals:parseTotals(lines)};
-}
-function normTok(s){ return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9 ]/g,' ').split(/\s+/)
-  .filter(t=>t.length>2&&!['les','des','pour','avec','par','sur','une','deux','jour','nuit','pers','personne','personnes','the','and','for'].includes(t)); }
-function levenshtein(a,b){ a=a.toLowerCase();b=b.toLowerCase(); const m=a.length,n=b.length; if(!m)return n; if(!n)return m;
-  const d=Array.from({length:m+1},(_,i)=>[i,...Array(n).fill(0)]); for(let j=0;j<=n;j++)d[0][j]=j;
-  for(let i=1;i<=m;i++)for(let j=1;j<=n;j++)d[i][j]=Math.min(d[i-1][j]+1,d[i][j-1]+1,d[i-1][j-1]+(a[i-1]===b[j-1]?0:1)); return d[m][n]; }
-function similarity(a,b){ const ta=new Set(normTok(a)),tb=new Set(normTok(b)); let inter=0; ta.forEach(t=>{if(tb.has(t))inter++;});
-  const uni=new Set([...ta,...tb]).size||1; const jacc=inter/uni; const lev=levenshtein(a,b),maxl=Math.max(a.length,b.length)||1;
-  return 0.65*jacc+0.35*(1-lev/maxl); }
-function autoMatch(q,s,threshold=0.34){ const cand=[];
-  q.forEach((qq,qi)=>s.forEach((ss,si)=>cand.push({qi,si,score:similarity(qq.desc,ss.desc)})));
-  cand.sort((a,b)=>b.score-a.score); const uQ=new Set(),uS=new Set(),pairs=[];
-  cand.forEach(c=>{ if(c.score<threshold)return; if(uQ.has(c.qi)||uS.has(c.si))return; uQ.add(c.qi);uS.add(c.si); pairs.push(c); });
-  return {pairs,uQ,uS}; }
+if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
 
-/* Reconcile: écart = supplier − quote. Suggestions net to the écart.
-   toAdd increases the Naboo quote, toRemove decreases it. */
-function reconcile(quoteItems,invItems,quoteHT,invHT){
-  const am=autoMatch(quoteItems,invItems);
-  const toAdd=[],toRemove=[],diffRows=[];
-  am.pairs.forEach(p=>{
-    const q=quoteItems[p.qi],s=invItems[p.si];
-    const qHT=q.totalHT||0,sHT=s.totalHT||0,d=round2(sHT-qHT);
-    diffRows.push({desc:s.desc,qHT,sHT,dHT:d,qVat:q.vat,sVat:s.vat,matched:true});
-    if(d>0.005) toAdd.push({desc:q.desc,amount:d,reason:'adjust'});
-    else if(d<-0.005) toRemove.push({desc:q.desc,amount:round2(-d),reason:'adjust'});
-  });
-  invItems.forEach((s,si)=>{ if(!am.uS.has(si)){ toAdd.push({desc:s.desc,amount:round2(s.totalHT||0),reason:'missing'});
-    diffRows.push({desc:s.desc,qHT:null,sHT:s.totalHT||0,dHT:round2(s.totalHT||0),qVat:null,sVat:s.vat,matched:false}); } });
-  quoteItems.forEach((q,qi)=>{ if(!am.uQ.has(qi)){ toRemove.push({desc:q.desc,amount:round2(q.totalHT||0),reason:'extra'});
-    diffRows.push({desc:q.desc,qHT:q.totalHT||0,sHT:null,dHT:round2(-(q.totalHT||0)),qVat:q.vat,sVat:null,matched:false}); } });
-  const addSum=round2(toAdd.reduce((a,x)=>a+x.amount,0));
-  const remSum=round2(toRemove.reduce((a,x)=>a+x.amount,0));
-  const ecartLines=round2(addSum-remSum);
-  const ecartTotals=(invHT!=null&&quoteHT!=null)?round2(invHT-quoteHT):null;
-  return {toAdd,toRemove,diffRows,addSum,remSum,ecartLines,ecartTotals};
-}
-window.RECON={parseFrNumber,round2,itemsToLines,parseLineItem,parseTotals,parseDocument,similarity,levenshtein,autoMatch,reconcile};
-
-/* ===================== I18N ===================== */
+/* ===== i18n ===== */
 const I18N={
   en:{title:'Quotes adjustments',
-    sub:'Drop the Naboo quote and the supplier invoice (one or more PDFs each), then reconcile.',
-    errNeedFiles:'Add at least one PDF on each side (Naboo quote and supplier invoice).',
-    privacy:'Everything runs in your browser — no file is uploaded anywhere.',
+    sub:'Drop the Naboo quote and the supplier invoice (one or more PDFs each), then compare.',
     quote:'Naboo Quote', inv:'Supplier Invoice', hint:'Drag PDFs here or click — multiple files allowed',
-    reconcile:'Compare', back:'New comparison', csv:'Export CSV',
-    toAdd:'To add to the Naboo quote', toRemove:'To remove from the Naboo quote',
-    desc:'Description', amt:'Amount HT (€)', why:'Reason', totalAdd:'Total to add', totalRem:'Total to remove',
-    detail:'Line-by-line differences', nht:'Naboo HT', sht:'Supplier HT', vat:'VAT',
-    reasonMissing:'On supplier invoice, missing from quote', reasonExtra:'On quote, not invoiced by supplier',
-    reasonAdjust:'Amount differs', none:'Nothing.',
-    ecartUp:'The Naboo quote must increase by {x} to match the supplier invoice.',
-    ecartDown:'The Naboo quote must decrease by {x} to match the supplier invoice.',
-    ecartZero:'The Naboo quote already matches the supplier invoice.',
-    ecartSub:'Suggested changes net out to: +{add} − {rem} = {net}. Gap from declared totals: {tot}.',
-    ecartSubNoTot:'Suggested changes net out to: +{add} − {rem} = {net}.',
-    residual:' ⚠ Unexplained residual vs declared totals: {r} (likely a parsing gap — check the source PDFs).',
-    foot:'Amounts are HT (excl. VAT). Matching uses description similarity (shared tokens + Levenshtein); no AI, no external calls. Scanned PDFs without a text layer are not supported.',
-    errPdf:'Not a PDF: ', errText:'No text layer found in one of the files (scanned PDF?). OCR is not supported.', errRead:'PDF read error: ',
-    fbQ:'Was this comparison useful?', fbReason:'What went wrong, and why?', fbSend:'Send feedback', fbThanks:'Thanks — your feedback was recorded.', gapLabel:'Gap'},
+    compare:'Compare', back:'New comparison',
+    resultLbl:'Result', invK:'Supplier invoice (TTC)', quoteK:'Quoted for this supplier (TTC)',
+    analyzing:'Analyzing…', match:'✓ Amounts match', gapHi:'Invoice is {x} higher than quoted', gapLo:'Invoice is {x} lower than quoted',
+    supplier:'Supplier:', notFound:'Could not read one of the amounts — open the PDFs and check manually.',
+    foot:'The amounts are read by AI from the documents’ TTC totals (per supplier in the quote, grand total on the invoice). Always sanity-check before acting. Scanned PDFs without a text layer are not supported.',
+    errFiles:'Add at least one PDF on each side (Naboo quote and supplier invoice).',
+    errText:'No text layer found in one of the files (scanned PDF?). OCR is not supported.',
+    errKey:'The AI key is not configured on the server yet (ANTHROPIC_API_KEY in Vercel).',
+    errGeneric:'Something went wrong reading the documents. Try again.',
+    fbQ:'Was this comparison useful?', fbReason:'What went wrong, and why?', fbSend:'Send feedback', fbThanks:'Thanks — your feedback was recorded.'},
   fr:{title:'Ajustement des devis',
-    sub:'Déposez le devis Naboo et la facture fournisseur (un ou plusieurs PDF chacun), puis réconciliez.',
-    errNeedFiles:'Ajoutez au moins un PDF de chaque côté (devis Naboo et facture fournisseur).',
-    privacy:'Tout s’exécute dans votre navigateur — aucun fichier n’est envoyé.',
+    sub:'Déposez le devis Naboo et la facture fournisseur (un ou plusieurs PDF chacun), puis comparez.',
     quote:'Devis Naboo', inv:'Facture fournisseur', hint:'Glissez les PDF ici ou cliquez — plusieurs fichiers possibles',
-    reconcile:'Comparer', back:'Nouvelle comparaison', csv:'Exporter CSV',
-    toAdd:'À ajouter au devis Naboo', toRemove:'À retirer du devis Naboo',
-    desc:'Description', amt:'Montant HT (€)', why:'Motif', totalAdd:'Total à ajouter', totalRem:'Total à retirer',
-    detail:'Différences ligne par ligne', nht:'HT devis', sht:'HT fourn.', vat:'TVA',
-    reasonMissing:'Sur la facture fournisseur, absent du devis', reasonExtra:'Sur le devis, non facturé par le fournisseur',
-    reasonAdjust:'Montant différent', none:'Rien.',
-    ecartUp:'Le devis Naboo doit augmenter de {x} pour correspondre à la facture fournisseur.',
-    ecartDown:'Le devis Naboo doit diminuer de {x} pour correspondre à la facture fournisseur.',
-    ecartZero:'Le devis Naboo correspond déjà à la facture fournisseur.',
-    ecartSub:'Les changements proposés totalisent : +{add} − {rem} = {net}. Écart d’après les totaux déclarés : {tot}.',
-    ecartSubNoTot:'Les changements proposés totalisent : +{add} − {rem} = {net}.',
-    residual:' ⚠ Résidu non expliqué vs totaux déclarés : {r} (probable défaut de lecture — vérifiez les PDF source).',
-    foot:'Montants en HT. L’appariement repose sur la similarité des descriptions (tokens partagés + Levenshtein) ; aucune IA, aucun appel externe. Les PDF scannés sans couche texte ne sont pas pris en charge.',
-    errPdf:'Fichier non PDF : ', errText:'Couche texte introuvable dans un fichier (PDF scanné ?). L’OCR n’est pas pris en charge.', errRead:'Erreur de lecture PDF : ',
-    fbQ:'Cette comparaison vous a-t-elle été utile ?', fbReason:'Qu’est-ce qui s’est trompé, et pourquoi ?', fbSend:'Envoyer', fbThanks:'Merci — votre retour a été enregistré.', gapLabel:'Écart'}
+    compare:'Comparer', back:'Nouvelle comparaison',
+    resultLbl:'Résultat', invK:'Facture fournisseur (TTC)', quoteK:'Devis pour ce fournisseur (TTC)',
+    analyzing:'Analyse…', match:'✓ Les montants correspondent', gapHi:'La facture est {x} plus élevée que le devis', gapLo:'La facture est {x} plus basse que le devis',
+    supplier:'Fournisseur :', notFound:'Impossible de lire un des montants — ouvrez les PDF et vérifiez manuellement.',
+    foot:'Les montants sont lus par IA depuis les totaux TTC des documents (par fournisseur dans le devis, total général sur la facture). Vérifiez toujours avant d’agir. Les PDF scannés sans couche texte ne sont pas pris en charge.',
+    errFiles:'Ajoutez au moins un PDF de chaque côté (devis Naboo et facture fournisseur).',
+    errText:'Couche texte introuvable dans un fichier (PDF scanné ?). L’OCR n’est pas pris en charge.',
+    errKey:'La clé IA n’est pas encore configurée sur le serveur (ANTHROPIC_API_KEY dans Vercel).',
+    errGeneric:'Un problème est survenu à la lecture des documents. Réessayez.',
+    fbQ:'Cette comparaison vous a-t-elle été utile ?', fbReason:'Qu’est-ce qui s’est trompé, et pourquoi ?', fbSend:'Envoyer', fbThanks:'Merci — votre retour a été enregistré.'}
 };
 let lang='en';
-function t(k){ return I18N[lang][k]; }
+const t=k=>I18N[lang][k];
 function setLang(l){ lang=l; document.documentElement.lang=l;
   document.getElementById('lang_en').classList.toggle('active',l==='en');
   document.getElementById('lang_fr').classList.toggle('active',l==='fr');
-  applyStatic(); if(lastResult) renderResults(lastResult); }
+  applyStatic(); if(lastResult) renderResult(lastResult); }
 function applyStatic(){
   const m={h_title:'title',h_sub:'sub',h_quote:'quote',h_inv:'inv',h_quoteHint:'hint',h_invHint:'hint',
-    h_toAdd:'toAdd',h_toRemove:'toRemove',h_desc1:'desc',h_amt1:'amt',h_why1:'why',h_total1:'totalAdd',
-    h_desc2:'desc',h_amt2:'amt',h_why2:'why',h_total2:'totalRem',h_detail:'detail',h_desc3:'desc',
-    h_nht:'nht',h_sht:'sht',h_vat:'vat',h_back:'back',h_foot:'foot',fb_q:'fbQ',ecartLbl:'gapLabel'};
-  for(const id in m){ const el=document.getElementById(id); if(el) el.textContent=t(m[id]); }
-  document.getElementById('btnReconcile').textContent=t('reconcile');
-  document.getElementById('btnCsv').textContent=t('csv');
-  document.getElementById('fb_send').textContent=t('fbSend');
-  document.getElementById('fb_text').placeholder=t('fbReason');
-  document.getElementById('fb_thanks').textContent=t('fbThanks');
+    h_back:'back',h_resultLbl:'resultLbl',h_invK:'invK',h_quoteK:'quoteK',h_foot:'foot',fb_q:'fbQ'};
+  for(const id in m){ const el=$(id); if(el) el.textContent=t(m[id]); }
+  $('btnCompare').textContent=t('compare');
+  $('fb_send').textContent=t('fbSend'); $('fb_text').placeholder=t('fbReason'); $('fb_thanks').textContent=t('fbThanks');
   document.title=t('title');
 }
 
-/* ===================== APP ===================== */
-if(window.pdfjsLib){ pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }
-const state={quote:[],inv:[]}; // arrays of File
-let lastResult=null;
+/* ===== helpers ===== */
 const $=id=>document.getElementById(id);
-
+const state={quote:[],inv:[]};
+let lastResult=null;
 function fmt(n){ if(n==null||isNaN(n))return '—'; return n.toLocaleString(lang==='fr'?'fr-FR':'en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function eur(n){ return fmt(n)+' €'; }
 function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function round2(n){ return Math.round((n+Number.EPSILON)*100)/100; }
+function showErr(m){ const e=$('err'); e.textContent=m; e.style.display='block'; }
 
+/* ===== file inputs ===== */
 function wire(dzId,inputId,which,listId){
   const dz=$(dzId),input=$(inputId);
   dz.addEventListener('click',e=>{ if(e.target.classList.contains('rm'))return; input.click(); });
@@ -373,7 +229,7 @@ function wire(dzId,inputId,which,listId){
 }
 function addFiles(files,which,listId){
   $('err').style.display='none';
-  files.forEach(f=>{ if(f.type!=='application/pdf'&&!/\.pdf$/i.test(f.name)){ showErr(t('errPdf')+f.name); return; }
+  files.forEach(f=>{ if(f.type!=='application/pdf'&&!/\.pdf$/i.test(f.name))return;
     if(!state[which].some(x=>x.name===f.name&&x.size===f.size)) state[which].push(f); });
   renderFiles(which,listId);
 }
@@ -381,110 +237,77 @@ function renderFiles(which,listId){
   const ul=$(listId); ul.innerHTML='';
   state[which].forEach((f,i)=>{ const li=document.createElement('li');
     li.innerHTML=`<span>${esc(f.name)}</span><button class="rm" title="remove">×</button>`;
-    li.querySelector('.rm').onclick=ev=>{ ev.stopPropagation(); state[which].splice(i,1); renderFiles(which,listId); refreshBtn(); };
+    li.querySelector('.rm').onclick=ev=>{ ev.stopPropagation(); state[which].splice(i,1); renderFiles(which,listId); };
     ul.appendChild(li); });
-  refreshBtn();
 }
-function refreshBtn(){ /* CTA stays permanently active (lime); validation happens on click */ }
-function showErr(m){ const e=$('err'); e.textContent=m; e.style.display='block'; }
-
 wire('dzQuote','fileQuote','quote','filesQuote');
 wire('dzInv','fileInv','inv','filesInv');
 
+/* ===== pdf text extraction (raw) ===== */
 async function extractText(file){
   const buf=await file.arrayBuffer();
   const pdf=await pdfjsLib.getDocument({data:buf}).promise;
-  let lines=[];
-  for(let p=1;p<=pdf.numPages;p++){ const tc=await (await pdf.getPage(p)).getTextContent(); lines=lines.concat(RECON.itemsToLines(tc.items)); }
-  return lines;
-}
-async function parseSide(files){
-  let items=[],sideHT=0,sideTTC=0,hasTTC=false,textLen=0;
-  for(const f of files){
-    const lines=await extractText(f); textLen+=lines.join('').replace(/\s/g,'').length;
-    const doc=RECON.parseDocument(lines);
-    items=items.concat(doc.items);
-    const lineHT=RECON.round2(doc.items.reduce((a,it)=>a+(it.totalHT||0),0));
-    sideHT+=(doc.totals.totalHT!=null?doc.totals.totalHT:lineHT);
-    if(doc.totals.totalTTC!=null){ sideTTC+=doc.totals.totalTTC; hasTTC=true; }
+  let out=[];
+  for(let p=1;p<=pdf.numPages;p++){
+    const tc=await (await pdf.getPage(p)).getTextContent();
+    const rows={};
+    tc.items.forEach(it=>{ if(it.str==null)return; const y=Math.round(it.transform[5]); (rows[y]=rows[y]||[]).push([it.transform[4],it.str]); });
+    Object.keys(rows).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      out.push(rows[y].sort((a,b)=>a[0]-b[0]).map(p=>p[1]).join(' ').replace(/\s+/g,' ').trim());
+    });
   }
-  return {items,totalHT:RECON.round2(sideHT),totalTTC:hasTTC?RECON.round2(sideTTC):null,textLen};
+  return out.filter(Boolean).join('\n');
 }
+async function sideText(files){ let txt=''; for(const f of files){ txt+= (txt?'\n\n':'') + await extractText(f); } return txt; }
 
-$('btnReconcile').addEventListener('click',async()=>{
-  if(!state.quote.length||!state.inv.length){ showErr(t('errNeedFiles')); return; }
-  const btn=$('btnReconcile'); btn.disabled=true; $('status').innerHTML='<span class="spinner"></span>';
+/* ===== compare ===== */
+$('btnCompare').addEventListener('click',async()=>{
+  if(!state.quote.length||!state.inv.length){ showErr(t('errFiles')); return; }
+  const btn=$('btnCompare'); btn.disabled=true; const old=btn.innerHTML;
+  btn.innerHTML='<span class="spinner"></span> '+t('analyzing');
   try{
-    const [q,s]=await Promise.all([parseSide(state.quote),parseSide(state.inv)]);
-    if(q.textLen<20||s.textLen<20){ showErr(t('errText')); btn.disabled=false; $('status').textContent=''; return; }
-    const r=RECON.reconcile(q.items,s.items,q.totalHT,s.totalHT);
-    r.quoteTTC=q.totalTTC; r.invTTC=s.totalTTC;
-    lastResult=r; renderResults(r);
-    $('importView').classList.add('hide'); $('resultView').classList.remove('hide'); $('status').textContent='';
+    const [quoteText,invoiceText]=await Promise.all([sideText(state.quote),sideText(state.inv)]);
+    if(quoteText.replace(/\s/g,'').length<20||invoiceText.replace(/\s/g,'').length<20){ showErr(t('errText')); return; }
+    const resp=await fetch('/api/extract',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({quoteText,invoiceText})});
+    const data=await resp.json();
+    if(!resp.ok){ showErr(data&&data.error==='NO_KEY'?t('errKey'):t('errGeneric')); return; }
+    lastResult=data; renderResult(data);
+    $('importView').classList.add('hide'); $('resultView').classList.remove('hide');
     window.scrollTo({top:0,behavior:'smooth'});
-  }catch(err){ showErr(t('errRead')+err.message); }
-  finally{ btn.disabled=false; refreshBtn(); }
+  }catch(e){ showErr(t('errGeneric')); }
+  finally{ btn.disabled=false; btn.innerHTML=old; }
 });
 $('btnBack').addEventListener('click',()=>{ $('resultView').classList.add('hide'); $('importView').classList.remove('hide'); });
 
-function reasonText(r){ return r==='missing'?t('reasonMissing'):r==='extra'?t('reasonExtra'):t('reasonAdjust'); }
-
-function renderResults(r){
-  const net=r.ecartTotals!=null?r.ecartTotals:r.ecartLines;
-  const card=$('ecartCard'); card.classList.remove('pos','neg');
-  if(net>0.005)card.classList.add('pos'); else if(net<-0.005)card.classList.add('neg');
-  $('ecartBig').textContent=(net>0?'+':'')+eur(net);
-  let exp; if(Math.abs(net)<0.005) exp=t('ecartZero');
-  else if(net>0) exp=t('ecartUp').replace('{x}',eur(net));
-  else exp=t('ecartDown').replace('{x}',eur(Math.abs(net)));
-  $('ecartExp').textContent=exp;
-
-  let sub;
-  if(r.ecartTotals!=null){
-    sub=t('ecartSub').replace('{add}',eur(r.addSum)).replace('{rem}',eur(r.remSum)).replace('{net}',(r.ecartLines>0?'+':'')+eur(r.ecartLines)).replace('{tot}',(r.ecartTotals>0?'+':'')+eur(r.ecartTotals));
-    const resid=RECON.round2(r.ecartTotals-r.ecartLines);
-    if(Math.abs(resid)>0.02) sub+=t('residual').replace('{r}',eur(resid));
-  } else {
-    sub=t('ecartSubNoTot').replace('{add}',eur(r.addSum)).replace('{rem}',eur(r.remSum)).replace('{net}',(r.ecartLines>0?'+':'')+eur(r.ecartLines));
+function renderResult(d){
+  const inv=(typeof d.invoiceTTC==='number')?d.invoiceTTC:null;
+  const q=(typeof d.quoteSupplierTTC==='number')?d.quoteSupplierTTC:null;
+  $('invVal').textContent=inv==null?'—':eur(inv);
+  $('quoteVal').textContent=q==null?'—':eur(q);
+  $('supplierLine').innerHTML=d.supplier?`${t('supplier')} <b>${esc(d.supplier)}</b>`:'';
+  $('resultNote').textContent=d.note||'';
+  const card=$('resultCard'); card.classList.remove('ok','bad','warn');
+  if(inv==null||q==null){ card.classList.add('warn'); $('resultBig').textContent=t('notFound'); }
+  else{
+    const gap=round2(inv-q);
+    if(Math.abs(gap)<0.01){ card.classList.add('ok'); $('resultBig').textContent=t('match')+' — '+eur(inv)+' TTC'; }
+    else if(gap>0){ card.classList.add('bad'); $('resultBig').textContent=t('gapHi').replace('{x}',eur(gap)); }
+    else{ card.classList.add('bad'); $('resultBig').textContent=t('gapLo').replace('{x}',eur(Math.abs(gap))); }
   }
-  $('ecartSub').textContent=sub;
-
-  fillList('tblAdd',r.toAdd,'addSum',r.addSum);
-  fillList('tblRemove',r.toRemove,'remSum',r.remSum);
-
   resetFeedback();
 }
-function fillList(tblId,rows,sumId,sum){
-  const tb=$(tblId).querySelector('tbody'); tb.innerHTML='';
-  if(!rows.length){ tb.innerHTML=`<tr><td colspan="3" class="empty">${t('none')}</td></tr>`; }
-  else rows.forEach(x=>{ const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${esc(x.desc)}</td><td class="num">${fmt(x.amount)}</td><td>${reasonText(x.reason)}</td>`; tb.appendChild(tr); });
-  $(sumId).textContent=fmt(sum);
-}
-$('btnCsv').addEventListener('click',()=>{
-  if(!lastResult)return; const r=lastResult; const rows=[];
-  rows.push(['SECTION','Description','Amount HT','Reason']);
-  r.toAdd.forEach(x=>rows.push(['ADD',x.desc,x.amount,reasonText(x.reason)]));
-  r.toRemove.forEach(x=>rows.push(['REMOVE',x.desc,x.amount,reasonText(x.reason)]));
-  rows.push(['GAP','', (r.ecartTotals!=null?r.ecartTotals:r.ecartLines),'']);
-  const csv=rows.map(r=>r.map(c=>`"${String(c??'').replace(/"/g,'""')}"`).join(';')).join('\n');
-  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
-  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='reconciliation.csv'; a.click();
-});
 
-/* ---- feedback (👍/👎 → Google Sheet via Apps Script web app) ---- */
+/* ===== feedback ===== */
 const FEEDBACK_ENDPOINT='https://script.google.com/a/macros/naboo.app/s/AKfycbyFFJZzR6HOfp05ommmHMrOnachUrG_SiTGq07Beu8at8vtiplqZlphDK1tZAKDHFcm/exec';
 function resetFeedback(){
   const fb=$('feedback');
-  fb.querySelector('.fb-q').classList.remove('hide');
-  fb.querySelector('.fb-btns').classList.remove('hide');
+  fb.querySelector('.fb-q').classList.remove('hide'); fb.querySelector('.fb-btns').classList.remove('hide');
   $('fb_reason').classList.add('hide'); $('fb_thanks').classList.add('hide');
   $('fb_up').classList.remove('sel'); $('fb_down').classList.remove('sel'); $('fb_text').value='';
 }
 function fbShowThanks(){
   const fb=$('feedback');
-  fb.querySelector('.fb-q').classList.add('hide');
-  fb.querySelector('.fb-btns').classList.add('hide');
+  fb.querySelector('.fb-q').classList.add('hide'); fb.querySelector('.fb-btns').classList.add('hide');
   $('fb_reason').classList.add('hide'); $('fb_thanks').classList.remove('hide');
 }
 function sendFeedback(vote,reason){
