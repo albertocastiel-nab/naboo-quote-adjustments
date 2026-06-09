@@ -12,12 +12,13 @@ Naboo is a transparent intermediary: the quote can bundle one or more SUPPLIERS 
 
 From the two documents below:
 1. Identify the SUPPLIER that issued the INVOICE (the company name on the facture, e.g. the hotel).
-2. Read the INVOICE grand total in euros TTC (tax included).
-3. In the QUOTE, find the subtotal in euros TTC for THAT SAME supplier. Use the per-supplier subtotal, NOT the global "Total séjour" total, and EXCLUDE Naboo "Frais de service".
+2. Read the INVOICE grand total in euros TTC (tax included). This must be the FULL gross total BEFORE any deposit is deducted. If the invoice only shows a balance after subtracting a deposit (e.g. "Votre Acompte" / "Acompte" / "Déjà facturé" then "Net à payer" / "Net de règlement" / "Solde"), then set invoiceTTC = (net/balance) + (deposit), i.e. reconstruct the full amount.
+3. Also report, if present on the invoice: invoiceAcompte = the deposit already paid (as a positive number), and invoiceNet = the net / balance still to pay. Use null if the invoice has no deposit.
+4. In the QUOTE, find the subtotal in euros TTC for THAT SAME supplier. Use the per-supplier subtotal, NOT the global "Total séjour" total, and EXCLUDE Naboo "Frais de service".
 Numbers may use French (1 234,56) or US (1,234.56 / 1 234.56) formats — normalise to a plain number like 4768.62.
 
 Return ONLY strict minified JSON, no prose:
-{"supplier": string|null, "invoiceTTC": number|null, "quoteSupplierTTC": number|null, "note": string}
+{"supplier": string|null, "invoiceTTC": number|null, "quoteSupplierTTC": number|null, "invoiceAcompte": number|null, "invoiceNet": number|null, "note": string}
 "note" = one short sentence in the language of the documents explaining what you matched (or why a value is null).
 
 === QUOTE (devis) ===
