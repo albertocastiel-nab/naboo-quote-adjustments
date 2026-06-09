@@ -88,6 +88,10 @@
   .mlabel{font-size:12.5px;color:var(--muted-fg);display:block}
   .minput{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:14px;color:var(--fg);margin-top:5px;background:var(--card)}
   .minput:focus{outline:none;border-color:var(--primary-strong)}
+  .warnbox{background:hsl(32 90% 96%);border:1px solid hsl(32 80% 82%);color:var(--warning);border-radius:var(--radius-sm);padding:12px 16px;margin-top:16px;font-size:13px}
+  .warnbox b{display:block;margin-bottom:4px}
+  .warnbox ul{margin:0;padding-left:18px}
+  @media print{ header,.resbar,.feedback,.footns{display:none!important} body{background:#fff} .result{break-inside:avoid} }
 </style>
 </head>
 <body>
@@ -150,6 +154,7 @@
       <button class="btn ghost" id="btnBack">← <span id="h_back">New comparison</span></button>
       <button class="btn ghost" id="btnCopy">⧉ <span id="h_copy">Copy summary</span></button>
       <button class="btn ghost" id="btnCsv">↓ <span id="h_csv">CSV</span></button>
+      <button class="btn ghost" id="btnPrint">🖨 <span id="h_print">Print</span></button>
     </div>
     <div class="result" id="resultCard">
       <div class="lbl" id="h_resultLbl">Result</div>
@@ -161,6 +166,7 @@
       </div>
       <div class="supplier" id="supplierLine"></div>
       <div class="supplier" id="depositLine" style="display:none;margin-top:6px;color:var(--muted-fg)"></div>
+      <div class="warnbox hide" id="warnBox"></div>
     </div>
 
     <div class="feedback" id="feedback">
@@ -194,6 +200,8 @@ const I18N={
     supplier:'Supplier:', deposit:'Deposit already paid:', balance:'Balance due:', notFound:'Could not read one of the amounts — open the PDFs and check manually.',
     manualToggle:'Enter amounts manually', mInvK:'Invoice total (TTC)', mQuoteK:'Quoted for this supplier (TTC)', mDepK:'Deposit already paid (optional)',
     copySummary:'Copy summary', csv:'CSV', copied:'Copied!', manualNote:'Entered manually.',
+    warnTitle:'Consistency checks flagged something to review:', print:'Print', acompteRefLbl:'Deposit invoice',
+    scannedManual:'No text layer found (scanned PDF?). Enter the amounts manually below.',
     foot:'The amounts are read by AI from the documents’ TTC totals (per supplier in the quote, grand total on the invoice). Always sanity-check before acting. Scanned PDFs without a text layer are not supported.',
     errFiles:'Add at least one PDF on each side (Naboo quote and supplier invoice).',
     errText:'No text layer found in one of the files (scanned PDF?). OCR is not supported.',
@@ -209,6 +217,8 @@ const I18N={
     supplier:'Fournisseur :', deposit:'Acompte déjà payé :', balance:'Solde à payer :', notFound:'Impossible de lire un des montants — ouvrez les PDF et vérifiez manuellement.',
     manualToggle:'Saisir les montants manuellement', mInvK:'Total facture (TTC)', mQuoteK:'Devis pour ce fournisseur (TTC)', mDepK:'Acompte déjà payé (optionnel)',
     copySummary:'Copier le résumé', csv:'CSV', copied:'Copié !', manualNote:'Saisie manuelle.',
+    warnTitle:'Contrôles de cohérence à vérifier :', print:'Imprimer', acompteRefLbl:'Facture d’acompte',
+    scannedManual:'Couche texte introuvable (PDF scanné ?). Saisissez les montants manuellement ci-dessous.',
     foot:'Les montants sont lus par IA depuis les totaux TTC des documents (par fournisseur dans le devis, total général sur la facture). Vérifiez toujours avant d’agir. Les PDF scannés sans couche texte ne sont pas pris en charge.',
     errFiles:'Ajoutez au moins un PDF de chaque côté (devis Naboo et facture fournisseur).',
     errText:'Couche texte introuvable dans un fichier (PDF scanné ?). L’OCR n’est pas pris en charge.',
@@ -225,7 +235,7 @@ function setLang(l){ lang=l; document.documentElement.lang=l;
 function applyStatic(){
   const m={h_title:'title',h_sub:'sub',h_quote:'quote',h_inv:'inv',h_quoteHint:'hint',h_invHint:'hint',
     h_back:'back',h_resultLbl:'resultLbl',h_invK:'invK',h_quoteK:'quoteK',h_foot:'foot',fb_q:'fbQ',
-    manualToggle:'manualToggle',m_invK:'mInvK',m_quoteK:'mQuoteK',m_depK:'mDepK',h_copy:'copySummary',h_csv:'csv'};
+    manualToggle:'manualToggle',m_invK:'mInvK',m_quoteK:'mQuoteK',m_depK:'mDepK',h_copy:'copySummary',h_csv:'csv',h_print:'print'};
   for(const id in m){ const el=$(id); if(el) el.textContent=t(m[id]); }
   $('btnCompare').textContent=t('compare'); $('btnManual').textContent=t('compare');
   $('fb_send').textContent=t('fbSend'); $('fb_text').placeholder=t('fbReason'); $('fb_thanks').textContent=t('fbThanks');
@@ -291,7 +301,7 @@ $('btnCompare').addEventListener('click',async()=>{
   btn.innerHTML='<span class="spinner"></span> '+t('analyzing');
   try{
     const [quoteText,invoiceText]=await Promise.all([sideText(state.quote),sideText(state.inv)]);
-    if(quoteText.replace(/\s/g,'').length<20||invoiceText.replace(/\s/g,'').length<20){ showErr(t('errText')); return; }
+    if(quoteText.replace(/\s/g,'').length<50||invoiceText.replace(/\s/g,'').length<50){ showErr(t('scannedManual')); $('manualPanel').classList.remove('hide'); return; }
     const resp=await fetch('/api/extract',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({quoteText,invoiceText})});
     const data=await resp.json();
     if(!resp.ok){ showErr(data&&data.error==='NO_KEY'?t('errKey'):t('errGeneric')); return; }
@@ -311,10 +321,18 @@ function renderResult(d){
   $('supplierLine').innerHTML=d.supplier?`${t('supplier')} <b>${esc(d.supplier)}</b>`:'';
   const ac=(typeof d.invoiceAcompte==='number')?d.invoiceAcompte:null;
   const net=(typeof d.invoiceNet==='number')?d.invoiceNet:null;
-  if(ac!=null||net!=null){
-    $('depositLine').style.display='';
-    $('depositLine').innerHTML=[ac!=null?`${t('deposit')} <b>${eur(ac)}</b>`:'', net!=null?`${t('balance')} <b>${eur(net)}</b>`:''].filter(Boolean).join(' · ');
-  } else { $('depositLine').style.display='none'; $('depositLine').innerHTML=''; }
+  const parts=[];
+  if(ac!=null) parts.push(`${t('deposit')} <b>${eur(ac)}</b>`);
+  if(net!=null) parts.push(`${t('balance')} <b>${eur(net)}</b>`);
+  if(d.acompteRef && typeof d.acompteRef.montantTTC==='number'){
+    const rf=d.acompteRef;
+    parts.push(`${t('acompteRefLbl')}${rf.numero?(' '+esc(rf.numero)):''}: <b>${eur(rf.montantTTC)}</b>${rf.statut?(' ('+esc(rf.statut)+')'):''}`);
+  }
+  if(parts.length){ $('depositLine').style.display=''; $('depositLine').innerHTML=parts.join(' · '); }
+  else { $('depositLine').style.display='none'; $('depositLine').innerHTML=''; }
+  const wrns=Array.isArray(d.warnings)?d.warnings:[];
+  if(wrns.length){ $('warnBox').classList.remove('hide'); $('warnBox').innerHTML=`<b>${t('warnTitle')}</b><ul>${wrns.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`; }
+  else { $('warnBox').classList.add('hide'); $('warnBox').innerHTML=''; }
   $('resultNote').textContent=d.note||'';
   const card=$('resultCard'); card.classList.remove('ok','bad','warn');
   if(inv==null||q==null){ card.classList.add('warn'); $('resultBig').textContent=t('notFound'); }
@@ -374,6 +392,7 @@ $('btnCopy').addEventListener('click',()=>{
     (typeof r.invoiceAcompte==='number')?(t('deposit')+' '+eur(r.invoiceAcompte)+((typeof r.invoiceNet==='number')?(' · '+t('balance')+' '+eur(r.invoiceNet)):'')):'', verdict].filter(Boolean).join('\n');
   navigator.clipboard.writeText(txt).then(()=>{ const b=$('h_copy'); const o=b.textContent; b.textContent=t('copied'); setTimeout(()=>b.textContent=o,1500); }).catch(()=>{});
 });
+$('btnPrint').addEventListener('click',()=>window.print());
 $('btnCsv').addEventListener('click',()=>{
   const {r,inv,q,gap,verdict}=resultSummary();
   const rows=[['Supplier','Invoice TTC','Quoted TTC','Gap','Verdict','Deposit','Balance'],
