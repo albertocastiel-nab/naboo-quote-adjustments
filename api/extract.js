@@ -1,25 +1,28 @@
 // Vercel serverless function — reconciles a Naboo quote vs a supplier invoice using Claude.
-// Holds the API key server-side (env var ANTHROPIC_API_KEY). The browser never sees it.
-// Cost strategy: cheap model (Haiku) does every extraction; escalate to Sonnet ONLY when the
-// amounts don't match or a value is missing, to confirm a discrepancy before reporting it.
+// Key stays server-side (env var). Cheap model (Haiku) does every extraction; escalate to Sonnet
+// only when the amounts don't match OR the LLM output fails an internal consistency check.
 
 const HAIKU = 'claude-haiku-4-5-20251001';
 const SONNET = 'claude-sonnet-4-6';
 
 function buildPrompt(quoteText, invoiceText) {
   return `You reconcile a Naboo client quote (devis) against a supplier invoice (facture).
-Naboo is a transparent intermediary: the quote can bundle one or more SUPPLIERS plus Naboo's own line called "Frais de service" / "Venue finding" (that is Naboo's margin, NOT a supplier).
+Naboo is a transparent intermediary: the quote can bundle one or more SUPPLIERS plus Naboo's own line called "Frais de service" / "Venue finding" (Naboo's margin, NOT a supplier).
 
-From the two documents below:
-1. Identify the SUPPLIER that issued the INVOICE (the company name on the facture, e.g. the hotel).
-2. Read the INVOICE grand total in euros TTC (tax included). This must be the FULL gross total BEFORE any deposit is deducted. If the invoice only shows a balance after subtracting a deposit (e.g. "Votre Acompte" / "Acompte" / "Déjà facturé" then "Net à payer" / "Net de règlement" / "Solde"), then set invoiceTTC = (net/balance) + (deposit), i.e. reconstruct the full amount.
-3. Also report, if present on the invoice: invoiceAcompte = the deposit already paid (as a positive number), and invoiceNet = the net / balance still to pay. Use null if the invoice has no deposit.
-4. In the QUOTE, find the subtotal in euros TTC for THAT SAME supplier. Use the per-supplier subtotal, NOT the global "Total séjour" total, and EXCLUDE Naboo "Frais de service".
-Numbers may use French (1 234,56) or US (1,234.56 / 1 234.56) formats — normalise to a plain number like 4768.62.
-
-Return ONLY strict minified JSON, no prose:
-{"supplier": string|null, "invoiceTTC": number|null, "quoteSupplierTTC": number|null, "invoiceAcompte": number|null, "invoiceNet": number|null, "note": string}
-"note" = one short sentence in the language of the documents explaining what you matched (or why a value is null).
+Extract, as STRICT minified JSON (no prose around it):
+{
+ "supplier": string|null,            // company that issued the INVOICE (the hotel/venue)
+ "invoiceTTC": number|null,          // FULL gross invoice total TTC, BEFORE any deposit is deducted. If the invoice only shows a balance after a deposit, set this = net + deposit.
+ "quoteSupplierTTC": number|null,    // in the QUOTE, the per-supplier subtotal TTC for that same supplier. NOT the global "Total séjour". Exclude Naboo "Frais de service".
+ "invoiceAcompte": number|null,      // deposit already paid on the invoice (positive number), else null
+ "invoiceNet": number|null,          // net / balance still to pay, else null
+ "acompteRef": {"numero": string|null, "montantTTC": number|null, "statut": "payé"|"non payé"|null} | null,  // referenced deposit invoice, if any
+ "invoiceTotalHT": number|null,      // invoice total excl. VAT (full), else null
+ "invoiceTotalTVA": number|null,     // invoice total VAT (full), else null
+ "vatDetail": [{"rate": number, "base": number, "amount": number}],  // the invoice VAT breakdown table; [] if none
+ "note": string                      // one short sentence (language of the documents) explaining the match
+}
+Rules: amounts in euros, decimals with a dot (e.g. 4768.62). French (1 234,56) or US (1,234.56) inputs both normalise to a plain number. NEVER invent a figure that is absent from the document — use null. Fill invoiceAcompte AND invoiceNet whenever a deposit is deducted.
 
 === QUOTE (devis) ===
 ${quoteText}
@@ -32,7 +35,7 @@ async function callModel(model, key, prompt) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model, max_tokens: 400, messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({ model, max_tokens: 700, temperature: 0, messages: [{ role: 'user', content: prompt }] })
   });
   if (!r.ok) { const detail = await r.text(); const e = new Error('LLM_ERROR'); e.detail = detail.slice(0, 500); e.status = r.status; throw e; }
   const data = await r.json();
@@ -45,6 +48,31 @@ async function callModel(model, key, prompt) {
 }
 
 const num = v => (typeof v === 'number' && isFinite(v)) ? v : null;
+const r2 = n => Math.round((n + Number.EPSILON) * 100) / 100;
+
+// Deterministic, TOLERANT validation — only checks values that are actually present.
+// Returns an array of human-readable warnings (does NOT block).
+function validate(o) {
+  const w = [];
+  const close = (a, b) => Math.abs(a - b) <= Math.max(0.02, Math.abs(b) * 0.005);
+  const vd = Array.isArray(o.vatDetail) ? o.vatDetail : [];
+  const haveVd = vd.length > 0;
+  const sumBase = vd.reduce((s, x) => s + (num(x.base) || 0), 0);
+  const sumAmt = vd.reduce((s, x) => s + (num(x.amount) || 0), 0);
+  const recTTC = vd.reduce((s, x) => s + (num(x.base) || 0) * (1 + (num(x.rate) || 0) / 100), 0);
+
+  if (haveVd && num(o.invoiceTotalHT) != null && !close(sumBase, o.invoiceTotalHT))
+    w.push(`VAT bases sum (${r2(sumBase)}) ≠ declared HT (${o.invoiceTotalHT})`);
+  if (haveVd && num(o.invoiceTTC) != null && !close(sumBase + sumAmt, o.invoiceTTC))
+    w.push(`VAT table total (${r2(sumBase + sumAmt)}) ≠ invoice TTC (${o.invoiceTTC})`);
+  if (haveVd && num(o.invoiceTTC) != null && !close(recTTC, o.invoiceTTC))
+    w.push(`Recomputed TTC (${r2(recTTC)}) ≠ invoice TTC (${o.invoiceTTC})`);
+  if (num(o.invoiceAcompte) != null && num(o.invoiceNet) != null && num(o.invoiceTTC) != null && !close(o.invoiceAcompte + o.invoiceNet, o.invoiceTTC))
+    w.push(`Deposit + balance (${r2(o.invoiceAcompte + o.invoiceNet)}) ≠ full TTC (${o.invoiceTTC})`);
+  if (o.acompteRef && num(o.acompteRef.montantTTC) != null && num(o.invoiceAcompte) != null && !close(o.acompteRef.montantTTC, o.invoiceAcompte))
+    w.push(`Deposit deducted (${o.invoiceAcompte}) ≠ referenced deposit invoice (${o.acompteRef.montantTTC})`);
+  return w;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
@@ -63,15 +91,17 @@ export default async function handler(req, res) {
     // 1) Cheap pass
     let out = await callModel(HAIKU, key, prompt);
     let usedModel = 'haiku';
+    let warnings = validate(out);
     const inv = num(out.invoiceTTC), q = num(out.quoteSupplierTTC);
     const matches = inv != null && q != null && Math.abs(inv - q) < 0.01;
 
-    // 2) Escalate to verify a discrepancy / missing value
-    if (!matches) {
-      try { out = await callModel(SONNET, key, prompt); usedModel = 'sonnet'; }
+    // 2) Escalate to Sonnet when amounts don't match OR Haiku's numbers are internally inconsistent
+    if (!matches || warnings.length > 0) {
+      try { const s = await callModel(SONNET, key, prompt); out = s; usedModel = 'sonnet'; warnings = validate(out); }
       catch (e) { /* keep Haiku result if Sonnet fails */ }
     }
     out.model = usedModel;
+    out.warnings = warnings;
     res.status(200).json(out);
   } catch (e) {
     res.status(502).json({ error: e.message || 'SERVER', detail: e.detail || null, status: e.status || null });
