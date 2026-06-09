@@ -143,6 +143,7 @@
         <div class="numcard"><div class="k" id="h_quoteK">Quoted for this supplier (TTC)</div><div class="v" id="quoteVal">—</div></div>
       </div>
       <div class="supplier" id="supplierLine"></div>
+      <div class="supplier" id="depositLine" style="display:none;margin-top:6px;color:var(--muted-fg)"></div>
     </div>
 
     <div class="feedback" id="feedback">
@@ -173,7 +174,7 @@ const I18N={
     compare:'Compare', back:'New comparison',
     resultLbl:'Result', invK:'Supplier invoice (TTC)', quoteK:'Quoted for this supplier (TTC)',
     analyzing:'Analyzing…', match:'✓ Amounts match', gapHi:'Invoice is {x} higher than quoted', gapLo:'Invoice is {x} lower than quoted',
-    supplier:'Supplier:', notFound:'Could not read one of the amounts — open the PDFs and check manually.',
+    supplier:'Supplier:', deposit:'Deposit already paid:', balance:'Balance due:', notFound:'Could not read one of the amounts — open the PDFs and check manually.',
     foot:'The amounts are read by AI from the documents’ TTC totals (per supplier in the quote, grand total on the invoice). Always sanity-check before acting. Scanned PDFs without a text layer are not supported.',
     errFiles:'Add at least one PDF on each side (Naboo quote and supplier invoice).',
     errText:'No text layer found in one of the files (scanned PDF?). OCR is not supported.',
@@ -186,7 +187,7 @@ const I18N={
     compare:'Comparer', back:'Nouvelle comparaison',
     resultLbl:'Résultat', invK:'Facture fournisseur (TTC)', quoteK:'Devis pour ce fournisseur (TTC)',
     analyzing:'Analyse…', match:'✓ Les montants correspondent', gapHi:'La facture est {x} plus élevée que le devis', gapLo:'La facture est {x} plus basse que le devis',
-    supplier:'Fournisseur :', notFound:'Impossible de lire un des montants — ouvrez les PDF et vérifiez manuellement.',
+    supplier:'Fournisseur :', deposit:'Acompte déjà payé :', balance:'Solde à payer :', notFound:'Impossible de lire un des montants — ouvrez les PDF et vérifiez manuellement.',
     foot:'Les montants sont lus par IA depuis les totaux TTC des documents (par fournisseur dans le devis, total général sur la facture). Vérifiez toujours avant d’agir. Les PDF scannés sans couche texte ne sont pas pris en charge.',
     errFiles:'Ajoutez au moins un PDF de chaque côté (devis Naboo et facture fournisseur).',
     errText:'Couche texte introuvable dans un fichier (PDF scanné ?). L’OCR n’est pas pris en charge.',
@@ -286,6 +287,12 @@ function renderResult(d){
   $('invVal').textContent=inv==null?'—':eur(inv);
   $('quoteVal').textContent=q==null?'—':eur(q);
   $('supplierLine').innerHTML=d.supplier?`${t('supplier')} <b>${esc(d.supplier)}</b>`:'';
+  const ac=(typeof d.invoiceAcompte==='number')?d.invoiceAcompte:null;
+  const net=(typeof d.invoiceNet==='number')?d.invoiceNet:null;
+  if(ac!=null||net!=null){
+    $('depositLine').style.display='';
+    $('depositLine').innerHTML=[ac!=null?`${t('deposit')} <b>${eur(ac)}</b>`:'', net!=null?`${t('balance')} <b>${eur(net)}</b>`:''].filter(Boolean).join(' · ');
+  } else { $('depositLine').style.display='none'; $('depositLine').innerHTML=''; }
   $('resultNote').textContent=d.note||'';
   const card=$('resultCard'); card.classList.remove('ok','bad','warn');
   if(inv==null||q==null){ card.classList.add('warn'); $('resultBig').textContent=t('notFound'); }
