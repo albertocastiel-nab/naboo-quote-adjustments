@@ -82,6 +82,12 @@
   .fb-reason textarea{flex:1;min-width:260px;background:var(--card);border:1px solid var(--border);border-radius:10px;padding:10px 12px;font:inherit;font-size:14px;color:var(--fg);resize:vertical}
   .fb-reason textarea:focus{outline:none;border-color:var(--primary-strong)}
   .fb-thanks{color:var(--primary-strong);font-weight:500}
+  .linklike{background:none;border:none;color:var(--muted-fg);text-decoration:underline;font:inherit;font-size:13px;cursor:pointer}
+  .linklike:hover{color:var(--fg)}
+  .manual-panel{max-width:520px;margin:18px auto 0;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:22px;display:grid;gap:14px}
+  .mlabel{font-size:12.5px;color:var(--muted-fg);display:block}
+  .minput{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font:inherit;font-size:14px;color:var(--fg);margin-top:5px;background:var(--card)}
+  .minput:focus{outline:none;border-color:var(--primary-strong)}
 </style>
 </head>
 <body>
@@ -129,11 +135,22 @@
     <div class="bar">
       <button class="btn" id="btnCompare">Compare</button>
     </div>
+    <div style="text-align:center;margin-top:14px"><button class="linklike" id="manualToggle" type="button">Enter amounts manually</button></div>
+    <div class="manual-panel hide" id="manualPanel">
+      <div><label class="mlabel" id="m_invK">Invoice total (TTC)</label><input class="minput" type="number" step="0.01" id="mInvoice" placeholder="4768.62"></div>
+      <div><label class="mlabel" id="m_quoteK">Quoted for this supplier (TTC)</label><input class="minput" type="number" step="0.01" id="mQuote" placeholder="4768.62"></div>
+      <div><label class="mlabel" id="m_depK">Deposit already paid (optional)</label><input class="minput" type="number" step="0.01" id="mDeposit" placeholder=""></div>
+      <button class="btn" id="btnManual" style="justify-self:center">Compare</button>
+    </div>
     <div class="err" id="err"></div>
   </section>
 
   <section id="resultView" class="hide">
-    <div class="resbar"><button class="btn ghost" id="btnBack">← <span id="h_back">New comparison</span></button></div>
+    <div class="resbar" style="gap:10px">
+      <button class="btn ghost" id="btnBack">← <span id="h_back">New comparison</span></button>
+      <button class="btn ghost" id="btnCopy">⧉ <span id="h_copy">Copy summary</span></button>
+      <button class="btn ghost" id="btnCsv">↓ <span id="h_csv">CSV</span></button>
+    </div>
     <div class="result" id="resultCard">
       <div class="lbl" id="h_resultLbl">Result</div>
       <div class="big" id="resultBig">—</div>
@@ -175,6 +192,8 @@ const I18N={
     resultLbl:'Result', invK:'Supplier invoice (TTC)', quoteK:'Quoted for this supplier (TTC)',
     analyzing:'Analyzing…', match:'✓ Amounts match', gapHi:'Invoice is {x} higher than quoted', gapLo:'Invoice is {x} lower than quoted',
     supplier:'Supplier:', deposit:'Deposit already paid:', balance:'Balance due:', notFound:'Could not read one of the amounts — open the PDFs and check manually.',
+    manualToggle:'Enter amounts manually', mInvK:'Invoice total (TTC)', mQuoteK:'Quoted for this supplier (TTC)', mDepK:'Deposit already paid (optional)',
+    copySummary:'Copy summary', csv:'CSV', copied:'Copied!', manualNote:'Entered manually.',
     foot:'The amounts are read by AI from the documents’ TTC totals (per supplier in the quote, grand total on the invoice). Always sanity-check before acting. Scanned PDFs without a text layer are not supported.',
     errFiles:'Add at least one PDF on each side (Naboo quote and supplier invoice).',
     errText:'No text layer found in one of the files (scanned PDF?). OCR is not supported.',
@@ -188,6 +207,8 @@ const I18N={
     resultLbl:'Résultat', invK:'Facture fournisseur (TTC)', quoteK:'Devis pour ce fournisseur (TTC)',
     analyzing:'Analyse…', match:'✓ Les montants correspondent', gapHi:'La facture est {x} plus élevée que le devis', gapLo:'La facture est {x} plus basse que le devis',
     supplier:'Fournisseur :', deposit:'Acompte déjà payé :', balance:'Solde à payer :', notFound:'Impossible de lire un des montants — ouvrez les PDF et vérifiez manuellement.',
+    manualToggle:'Saisir les montants manuellement', mInvK:'Total facture (TTC)', mQuoteK:'Devis pour ce fournisseur (TTC)', mDepK:'Acompte déjà payé (optionnel)',
+    copySummary:'Copier le résumé', csv:'CSV', copied:'Copié !', manualNote:'Saisie manuelle.',
     foot:'Les montants sont lus par IA depuis les totaux TTC des documents (par fournisseur dans le devis, total général sur la facture). Vérifiez toujours avant d’agir. Les PDF scannés sans couche texte ne sont pas pris en charge.',
     errFiles:'Ajoutez au moins un PDF de chaque côté (devis Naboo et facture fournisseur).',
     errText:'Couche texte introuvable dans un fichier (PDF scanné ?). L’OCR n’est pas pris en charge.',
@@ -203,9 +224,10 @@ function setLang(l){ lang=l; document.documentElement.lang=l;
   applyStatic(); if(lastResult) renderResult(lastResult); }
 function applyStatic(){
   const m={h_title:'title',h_sub:'sub',h_quote:'quote',h_inv:'inv',h_quoteHint:'hint',h_invHint:'hint',
-    h_back:'back',h_resultLbl:'resultLbl',h_invK:'invK',h_quoteK:'quoteK',h_foot:'foot',fb_q:'fbQ'};
+    h_back:'back',h_resultLbl:'resultLbl',h_invK:'invK',h_quoteK:'quoteK',h_foot:'foot',fb_q:'fbQ',
+    manualToggle:'manualToggle',m_invK:'mInvK',m_quoteK:'mQuoteK',m_depK:'mDepK',h_copy:'copySummary',h_csv:'csv'};
   for(const id in m){ const el=$(id); if(el) el.textContent=t(m[id]); }
-  $('btnCompare').textContent=t('compare');
+  $('btnCompare').textContent=t('compare'); $('btnManual').textContent=t('compare');
   $('fb_send').textContent=t('fbSend'); $('fb_text').placeholder=t('fbReason'); $('fb_thanks').textContent=t('fbThanks');
   document.title=t('title');
 }
@@ -327,6 +349,39 @@ function fbSelect(which){ $('fb_up').classList.toggle('sel',which==='up'); $('fb
 $('fb_up').addEventListener('click',()=>{ fbSelect('up'); $('fb_reason').classList.add('hide'); sendFeedback('good',''); });
 $('fb_down').addEventListener('click',()=>{ fbSelect('down'); $('fb_reason').classList.remove('hide'); $('fb_text').focus(); });
 $('fb_send').addEventListener('click',()=>{ const v=$('fb_text').value.trim(); if(!v){ $('fb_text').focus(); return; } sendFeedback('bad',v); });
+
+/* ===== manual entry fallback ===== */
+$('manualToggle').addEventListener('click',()=>{ $('manualPanel').classList.toggle('hide'); $('err').style.display='none'; });
+$('btnManual').addEventListener('click',()=>{
+  const inv=parseFloat($('mInvoice').value), q=parseFloat($('mQuote').value), dep=parseFloat($('mDeposit').value);
+  if(isNaN(inv)||isNaN(q)){ showErr(t('errFiles')); return; }
+  const d={supplier:null, invoiceTTC:round2(inv), quoteSupplierTTC:round2(q),
+    invoiceAcompte:isNaN(dep)?null:round2(dep), invoiceNet:isNaN(dep)?null:round2(inv-dep), note:t('manualNote')};
+  lastResult=d; renderResult(d);
+  $('importView').classList.add('hide'); $('resultView').classList.remove('hide'); window.scrollTo({top:0,behavior:'smooth'});
+});
+
+/* ===== export ===== */
+function resultSummary(){
+  const r=lastResult||{}; const inv=(typeof r.invoiceTTC==='number')?r.invoiceTTC:null; const q=(typeof r.quoteSupplierTTC==='number')?r.quoteSupplierTTC:null;
+  const gap=(inv!=null&&q!=null)?round2(inv-q):null;
+  const verdict=gap==null?'—':(Math.abs(gap)<0.01?t('match'):(gap>0?t('gapHi'):t('gapLo')).replace('{x}',eur(Math.abs(gap))));
+  return {r,inv,q,gap,verdict};
+}
+$('btnCopy').addEventListener('click',()=>{
+  const {r,inv,q,verdict}=resultSummary();
+  const txt=['Quotes adjustments', r.supplier?(t('supplier')+' '+r.supplier):'', t('invK')+' '+eur(inv), t('quoteK')+' '+eur(q),
+    (typeof r.invoiceAcompte==='number')?(t('deposit')+' '+eur(r.invoiceAcompte)+((typeof r.invoiceNet==='number')?(' · '+t('balance')+' '+eur(r.invoiceNet)):'')):'', verdict].filter(Boolean).join('\n');
+  navigator.clipboard.writeText(txt).then(()=>{ const b=$('h_copy'); const o=b.textContent; b.textContent=t('copied'); setTimeout(()=>b.textContent=o,1500); }).catch(()=>{});
+});
+$('btnCsv').addEventListener('click',()=>{
+  const {r,inv,q,gap,verdict}=resultSummary();
+  const rows=[['Supplier','Invoice TTC','Quoted TTC','Gap','Verdict','Deposit','Balance'],
+    [r.supplier||'', inv??'', q??'', gap??'', verdict, (typeof r.invoiceAcompte==='number')?r.invoiceAcompte:'', (typeof r.invoiceNet==='number')?r.invoiceNet:'']];
+  const csv=rows.map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='quote-adjustment.csv'; a.click();
+});
 
 applyStatic();
 </script>
