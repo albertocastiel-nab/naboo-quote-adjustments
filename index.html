@@ -177,13 +177,13 @@
     <div id="breakdown" class="hide">
       <div id="addBlock">
         <h2 class="sec add" id="h_toAdd">To add to the Naboo quote</h2>
-        <div class="tablewrap"><table id="tblAdd"><thead><tr><th id="h_d1">Description</th><th class="num" id="h_a1">Amount TTC (€)</th></tr></thead><tbody></tbody>
-          <tfoot><tr><td id="h_t1">Total to add</td><td class="num" id="addSum">—</td></tr></tfoot></table></div>
+        <div class="tablewrap"><table id="tblAdd"><thead><tr><th id="h_d1">Description</th><th class="num" id="h_a1ht">Amount excl. VAT (€)</th><th class="num" id="h_a1tc">Amount incl. VAT (€)</th></tr></thead><tbody></tbody>
+          <tfoot><tr><td id="h_t1">Total to add</td><td class="num" id="addSumHT">—</td><td class="num" id="addSumTTC">—</td></tr></tfoot></table></div>
       </div>
       <div id="removeBlock">
         <h2 class="sec rem" id="h_toRemove">To remove from the Naboo quote</h2>
-        <div class="tablewrap"><table id="tblRemove"><thead><tr><th id="h_d2">Description</th><th class="num" id="h_a2">Amount TTC (€)</th></tr></thead><tbody></tbody>
-          <tfoot><tr><td id="h_t2">Total to remove</td><td class="num" id="remSum">—</td></tr></tfoot></table></div>
+        <div class="tablewrap"><table id="tblRemove"><thead><tr><th id="h_d2">Description</th><th class="num" id="h_a2ht">Amount excl. VAT (€)</th><th class="num" id="h_a2tc">Amount incl. VAT (€)</th></tr></thead><tbody></tbody>
+          <tfoot><tr><td id="h_t2">Total to remove</td><td class="num" id="remSumHT">—</td><td class="num" id="remSumTTC">—</td></tr></tfoot></table></div>
       </div>
     </div>
 
@@ -223,8 +223,9 @@ const I18N={
     copySummary:'Copy summary', csv:'CSV', copied:'Copied!', manualNote:'Entered manually.',
     warnTitle:'Consistency checks flagged something to review:', print:'Print', acompteRefLbl:'Deposit invoice',
     scannedManual:'No text layer found (scanned PDF?). Enter the amounts manually below.',
-    toAdd:'To add to the Naboo quote', toRemove:'To remove from the Naboo quote', descCol:'Description', amtTTC:'Amount HT (€)', totalAdd:'Total to add', totalRem:'Total to remove', none:'Nothing.',
-    foot:'The amounts are read by AI from the documents’ TTC totals (per supplier in the quote, grand total on the invoice). Always sanity-check before acting. Scanned PDFs without a text layer are not supported.',
+    toAdd:'To add to the Naboo quote', toRemove:'To remove from the Naboo quote', descCol:'Description', amtHT:'Amount excl. VAT (€)', amtTTC:'Amount incl. VAT (€)', totalAdd:'Total to add', totalRem:'Total to remove', none:'Nothing.',
+    uHT:'excl. VAT', uTTC:'incl. VAT',
+    foot:'The amounts are read by AI from the documents’ totals (per supplier in the quote, grand total on the invoice). Always sanity-check before acting. Scanned PDFs without a text layer are not supported.',
     errFiles:'Add at least one PDF on each side (Naboo quote and supplier invoice).',
     errText:'No text layer found in one of the files (scanned PDF?). OCR is not supported.',
     errKey:'The AI key is not configured on the server yet (ANTHROPIC_API_KEY in Vercel).',
@@ -244,7 +245,8 @@ const I18N={
     copySummary:'Copier le résumé', csv:'CSV', copied:'Copié !', manualNote:'Saisie manuelle.',
     warnTitle:'Contrôles de cohérence à vérifier :', print:'Imprimer', acompteRefLbl:'Facture d’acompte',
     scannedManual:'Couche texte introuvable (PDF scanné ?). Saisissez les montants manuellement ci-dessous.',
-    toAdd:'À ajouter au devis Naboo', toRemove:'À retirer du devis Naboo', descCol:'Description', amtTTC:'Montant HT (€)', totalAdd:'Total à ajouter', totalRem:'Total à retirer', none:'Rien.',
+    toAdd:'À ajouter au devis Naboo', toRemove:'À retirer du devis Naboo', descCol:'Description', amtHT:'Montant HT (€)', amtTTC:'Montant TTC (€)', totalAdd:'Total à ajouter', totalRem:'Total à retirer', none:'Rien.',
+    uHT:'HT', uTTC:'TTC',
     foot:'Les montants sont lus par IA depuis les totaux TTC des documents (par fournisseur dans le devis, total général sur la facture). Vérifiez toujours avant d’agir. Les PDF scannés sans couche texte ne sont pas pris en charge.',
     errFiles:'Ajoutez au moins un PDF de chaque côté (devis Naboo et facture fournisseur).',
     errText:'Couche texte introuvable dans un fichier (PDF scanné ?). L’OCR n’est pas pris en charge.',
@@ -262,7 +264,7 @@ function applyStatic(){
   const m={h_title:'title',h_sub:'sub',h_quote:'quote',h_inv:'inv',h_quoteHint:'hint',h_invHint:'hint',
     h_back:'back',h_resultLbl:'resultLbl',h_invK:'invK',h_quoteK:'quoteK',h_foot:'foot',fb_q:'fbQ',
     h_copy:'copySummary',h_csv:'csv',h_print:'print',
-    h_toAdd:'toAdd',h_toRemove:'toRemove',h_d1:'descCol',h_a1:'amtTTC',h_t1:'totalAdd',h_d2:'descCol',h_a2:'amtTTC',h_t2:'totalRem'};
+    h_toAdd:'toAdd',h_toRemove:'toRemove',h_d1:'descCol',h_a1ht:'amtHT',h_a1tc:'amtTTC',h_t1:'totalAdd',h_d2:'descCol',h_a2ht:'amtHT',h_a2tc:'amtTTC',h_t2:'totalRem'};
   for(const id in m){ const el=$(id); if(el) el.textContent=t(m[id]); }
   $('btnCompare').textContent=t('compare');
   $('fb_send').textContent=t('fbSend'); $('fb_text').placeholder=t('fbReason'); $('fb_thanks').textContent=t('fbThanks');
@@ -277,11 +279,14 @@ function fmt(n){ if(n==null||isNaN(n))return '—'; return n.toLocaleString(lang
 function eur(n){ return fmt(n)+' €'; }
 function esc(s){ return String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function round2(n){ return Math.round((n+Number.EPSILON)*100)/100; }
-function fillList(tblId,rows,sumId){
+function fillList(tblId,rows,sumHtId,sumTtcId){
   const tb=$(tblId).querySelector('tbody'); tb.innerHTML='';
-  if(!rows.length){ tb.innerHTML=`<tr><td colspan="2" class="empty">${t('none')}</td></tr>`; }
-  else rows.forEach(x=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${esc(x.desc)}</td><td class="num">${fmt(x.amount)}</td>`; tb.appendChild(tr); });
-  $(sumId).textContent=fmt(rows.reduce((s,x)=>s+(typeof x.amount==='number'?x.amount:0),0));
+  if(!rows.length){ tb.innerHTML=`<tr><td colspan="3" class="empty">${t('none')}</td></tr>`; }
+  else rows.forEach(x=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${esc(x.desc)}</td><td class="num">${x.ht!=null?fmt(x.ht):'—'}</td><td class="num">${x.ttc!=null?fmt(x.ttc):'—'}</td>`; tb.appendChild(tr); });
+  const sh=rows.reduce((s,x)=>s+(typeof x.ht==='number'?x.ht:0),0);
+  const st=rows.reduce((s,x)=>s+(typeof x.ttc==='number'?x.ttc:0),0);
+  if($(sumHtId)) $(sumHtId).textContent=rows.length?fmt(round2(sh)):'—';
+  if($(sumTtcId)) $(sumTtcId).textContent=rows.length?fmt(round2(st)):'—';
 }
 function showErr(m){ const e=$('err'); e.textContent=m; e.style.display='block'; }
 
@@ -335,7 +340,7 @@ $('btnCompare').addEventListener('click',async()=>{
   try{
     const [quoteText,invoiceText]=await Promise.all([sideText(state.quote),sideText(state.inv)]);
     if(quoteText.replace(/\s/g,'').length<50||invoiceText.replace(/\s/g,'').length<50){ showErr(t('errText')); return; }
-    const resp=await fetch('/api/extract',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({quoteText,invoiceText})});
+    const resp=await fetch('/api/extract',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({quoteText,invoiceText,lang})});
     const data=await resp.json();
     if(!resp.ok){ showErr(data&&data.error==='NO_KEY'?t('errKey'):t('errGeneric')); return; }
     lastResult=data; renderResult(data);
@@ -347,8 +352,8 @@ $('btnCompare').addEventListener('click',async()=>{
 $('btnBack').addEventListener('click',()=>{ $('resultView').classList.add('hide'); $('importView').classList.remove('hide'); });
 
 function cardPair(htv,ttcv){
-  if(htv!=null) return `${eur(htv)} <span class="vunit">HT</span>${ttcv!=null?`<span class="vsub"> (${eur(ttcv)} TTC)</span>`:''}`;
-  if(ttcv!=null) return `${eur(ttcv)} <span class="vunit">TTC</span>`;
+  if(htv!=null) return `${eur(htv)} <span class="vunit">${t('uHT')}</span>${ttcv!=null?`<span class="vsub"> (${eur(ttcv)} ${t('uTTC')})</span>`:''}`;
+  if(ttcv!=null) return `${eur(ttcv)} <span class="vunit">${t('uTTC')}</span>`;
   return '—';
 }
 function renderResult(d){
@@ -374,7 +379,7 @@ function renderResult(d){
   if(wrns.length){ $('warnBox').classList.remove('hide'); $('warnBox').innerHTML=`<b>${t('warnTitle')}</b><ul>${wrns.map(x=>`<li>${esc(x)}</li>`).join('')}</ul>`; }
   else { $('warnBox').classList.add('hide'); $('warnBox').innerHTML=''; }
   const toAdd=Array.isArray(d.toAdd)?d.toAdd:[], toRemove=Array.isArray(d.toRemove)?d.toRemove:[];
-  fillList('tblAdd',toAdd,'addSum'); fillList('tblRemove',toRemove,'remSum');
+  fillList('tblAdd',toAdd,'addSumHT','addSumTTC'); fillList('tblRemove',toRemove,'remSumHT','remSumTTC');
   $('addBlock').classList.toggle('hide', toAdd.length===0);
   $('removeBlock').classList.toggle('hide', toRemove.length===0);
   $('breakdown').classList.toggle('hide', toAdd.length===0 && toRemove.length===0);
@@ -386,8 +391,8 @@ function renderResult(d){
   const pInv=useHT?invHT:invTTC, pQuote=useHT?qHT:qTTC;
   const gap=round2(pInv-pQuote);
   const gapTTC=(invTTC!=null&&qTTC!=null)?round2(invTTC-qTTC):null;
-  const valStr=useHT?(eur(pInv)+' HT'+(invTTC!=null?` (${eur(invTTC)} TTC)`:'')):(eur(pInv)+' TTC');
-  const gapBoth=a=> useHT?(eur(a)+' HT'+(gapTTC!=null?` (${eur(Math.abs(gapTTC))} TTC)`:'')):(eur(a)+' TTC');
+  const valStr=useHT?(eur(pInv)+' '+t('uHT')+(invTTC!=null?` (${eur(invTTC)} ${t('uTTC')})`:'')):(eur(pInv)+' '+t('uTTC'));
+  const gapBoth=a=> useHT?(eur(a)+' '+t('uHT')+(gapTTC!=null?` (${eur(Math.abs(gapTTC))} ${t('uTTC')})`:'')):(eur(a)+' '+t('uTTC'));
   if(Math.abs(gap)<0.01){ card.classList.add('ok'); $('resultBig').textContent=t('match')+' — '+valStr; }
   else if(gap>0){ card.classList.add('bad'); $('resultBig').textContent=t('gapHi').replace('{x}',gapBoth(gap)); }
   else{ card.classList.add('bad'); $('resultBig').textContent=t('gapLo').replace('{x}',gapBoth(Math.abs(gap))); }
@@ -426,17 +431,18 @@ function resultSummary(){
   const gap=(pInv!=null&&pQuote!=null)?round2(pInv-pQuote):null;
   const gapTTC=(invTTC!=null&&qTTC!=null)?round2(invTTC-qTTC):null;
   let verdict='—';
-  if(gap!=null){ if(Math.abs(gap)<0.01) verdict=t('match'); else { const a=eur(Math.abs(gap))+(useHT?(' HT'+(gapTTC!=null?` (${eur(Math.abs(gapTTC))} TTC)`:'')):' TTC'); verdict=(gap>0?t('gapHi'):t('gapLo')).replace('{x}',a); } }
+  if(gap!=null){ if(Math.abs(gap)<0.01) verdict=t('match'); else { const a=eur(Math.abs(gap))+(useHT?(' '+t('uHT')+(gapTTC!=null?` (${eur(Math.abs(gapTTC))} ${t('uTTC')})`:'')):' '+t('uTTC')); verdict=(gap>0?t('gapHi'):t('gapLo')).replace('{x}',a); } }
   return {r,invHT,qHT,invTTC,qTTC,useHT,gap,gapTTC,verdict};
 }
 $('btnCopy').addEventListener('click',()=>{
   const {r,invHT,qHT,invTTC,qTTC,verdict}=resultSummary();
   const add=Array.isArray(r.toAdd)?r.toAdd:[], rem=Array.isArray(r.toRemove)?r.toRemove:[];
-  const pairTxt=(h,tc)=> h!=null?(eur(h)+' HT'+(tc!=null?` (${eur(tc)} TTC)`:'')):(tc!=null?eur(tc)+' TTC':'—');
+  const pairTxt=(h,tc)=> h!=null?(eur(h)+' '+t('uHT')+(tc!=null?` (${eur(tc)} ${t('uTTC')})`:'')):(tc!=null?eur(tc)+' '+t('uTTC'):'—');
+  const linePair=x=> pairTxt(typeof x.ht==='number'?x.ht:null, typeof x.ttc==='number'?x.ttc:null);
   const txt=['Quotes adjustments', r.supplier?(t('supplier')+' '+r.supplier):'', t('invK')+': '+pairTxt(invHT,invTTC), t('quoteK')+': '+pairTxt(qHT,qTTC),
     (typeof r.invoiceAcompte==='number')?(t('deposit')+' '+eur(r.invoiceAcompte)+((typeof r.invoiceNet==='number')?(' · '+t('balance')+' '+eur(r.invoiceNet)):'')):'', verdict,
-    add.length?(t('toAdd')+':\n'+add.map(x=>`  + ${x.desc}: ${eur(x.amount)} HT`).join('\n')):'',
-    rem.length?(t('toRemove')+':\n'+rem.map(x=>`  - ${x.desc}: ${eur(x.amount)} HT`).join('\n')):''
+    add.length?(t('toAdd')+':\n'+add.map(x=>`  + ${x.desc}: ${linePair(x)}`).join('\n')):'',
+    rem.length?(t('toRemove')+':\n'+rem.map(x=>`  - ${x.desc}: ${linePair(x)}`).join('\n')):''
   ].filter(Boolean).join('\n');
   navigator.clipboard.writeText(txt).then(()=>{ const b=$('h_copy'); const o=b.textContent; b.textContent=t('copied'); setTimeout(()=>b.textContent=o,1500); }).catch(()=>{});
 });
@@ -452,8 +458,8 @@ $('btnCsv').addEventListener('click',()=>{
   rows.push(['Verdict', verdict, '', '']);
   if(typeof r.invoiceAcompte==='number') rows.push(['Deposit (invoice)','', '', r.invoiceAcompte]);
   if(typeof r.invoiceNet==='number') rows.push(['Balance (invoice)','', '', r.invoiceNet]);
-  add.forEach(x=>rows.push(['ADD', x.desc, x.amount, '']));
-  rem.forEach(x=>rows.push(['REMOVE', x.desc, x.amount, '']));
+  add.forEach(x=>rows.push(['ADD', x.desc, x.ht??'', x.ttc??'']));
+  rem.forEach(x=>rows.push(['REMOVE', x.desc, x.ht??'', x.ttc??'']));
   const csv=rows.map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='quote-adjustment.csv'; a.click();
