@@ -214,7 +214,10 @@ const I18N={
     compare:'Compare', back:'New comparison',
     resultLbl:'Result', invK:'Supplier invoice (TTC)', quoteK:'Quoted for this supplier (TTC)',
     analyzing:'Analyzing…', match:'✓ Amounts match', gapHi:'Invoice is {x} higher than quoted', gapLo:'Invoice is {x} lower than quoted',
-    supplier:'Supplier:', deposit:'Deposit already paid:', balance:'Balance due:', notFound:'Could not read one of the amounts — open the PDFs and check manually.',
+    supplier:'Supplier:', deposit:'Deposit (per supplier invoice):', balance:'Balance (per supplier invoice):',
+    notFoundInv:'Couldn’t read the supplier invoice total — check that PDF is text-based (not a scan).',
+    notFoundQuote:'Couldn’t read the quoted amount for this supplier — check the Naboo quote PDF.',
+    notFoundBoth:'Couldn’t read the amounts — check the PDFs are text-based (not scans).',
     manualToggle:'Enter amounts manually', mInvK:'Invoice total (TTC)', mQuoteK:'Quoted for this supplier (TTC)', mDepK:'Deposit already paid (optional)',
     copySummary:'Copy summary', csv:'CSV', copied:'Copied!', manualNote:'Entered manually.',
     warnTitle:'Consistency checks flagged something to review:', print:'Print', acompteRefLbl:'Deposit invoice',
@@ -232,7 +235,10 @@ const I18N={
     compare:'Comparer', back:'Nouvelle comparaison',
     resultLbl:'Résultat', invK:'Facture fournisseur (TTC)', quoteK:'Devis pour ce fournisseur (TTC)',
     analyzing:'Analyse…', match:'✓ Les montants correspondent', gapHi:'La facture est {x} plus élevée que le devis', gapLo:'La facture est {x} plus basse que le devis',
-    supplier:'Fournisseur :', deposit:'Acompte déjà payé :', balance:'Solde à payer :', notFound:'Impossible de lire un des montants — ouvrez les PDF et vérifiez manuellement.',
+    supplier:'Fournisseur :', deposit:'Acompte (selon facture fournisseur) :', balance:'Solde (selon facture fournisseur) :',
+    notFoundInv:'Impossible de lire le total de la facture fournisseur — vérifiez que ce PDF est en texte (pas un scan).',
+    notFoundQuote:'Impossible de lire le montant du devis pour ce fournisseur — vérifiez le PDF du devis Naboo.',
+    notFoundBoth:'Impossible de lire les montants — vérifiez que les PDF sont en texte (pas des scans).',
     manualToggle:'Saisir les montants manuellement', mInvK:'Total facture (TTC)', mQuoteK:'Devis pour ce fournisseur (TTC)', mDepK:'Acompte déjà payé (optionnel)',
     copySummary:'Copier le résumé', csv:'CSV', copied:'Copié !', manualNote:'Saisie manuelle.',
     warnTitle:'Contrôles de cohérence à vérifier :', print:'Imprimer', acompteRefLbl:'Facture d’acompte',
@@ -366,7 +372,7 @@ function renderResult(d){
   $('breakdown').classList.toggle('hide', toAdd.length===0 && toRemove.length===0);
   $('resultNote').textContent=d.note||'';
   const card=$('resultCard'); card.classList.remove('ok','bad','warn');
-  if(inv==null||q==null){ card.classList.add('warn'); $('resultBig').textContent=t('notFound'); }
+  if(inv==null||q==null){ card.classList.add('warn'); $('resultBig').textContent=(inv==null&&q==null)?t('notFoundBoth'):(inv==null?t('notFoundInv'):t('notFoundQuote')); }
   else{
     const gap=round2(inv-q);
     if(Math.abs(gap)<0.01){ card.classList.add('ok'); $('resultBig').textContent=t('match')+' — '+eur(inv)+' TTC'; }
