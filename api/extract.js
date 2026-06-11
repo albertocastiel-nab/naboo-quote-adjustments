@@ -12,24 +12,27 @@ Naboo is a transparent intermediary: the quote can bundle one or more SUPPLIERS 
 Extract, as STRICT minified JSON (no prose around it):
 {
  "supplier": string|null,            // company that issued the INVOICE (the hotel/venue)
- "invoiceTTC": number|null,          // FULL gross invoice total TTC, BEFORE any deposit is deducted. If the invoice only shows a balance after a deposit, set this = net + deposit.
- "quoteSupplierTTC": number|null,    // in the QUOTE, the per-supplier subtotal TTC for that same supplier. NOT the global "Total séjour". Exclude Naboo "Frais de service".
- "invoiceAcompte": number|null,      // deposit already paid on the invoice (positive number), else null
- "invoiceNet": number|null,          // net / balance still to pay, else null
+ "invoiceTotalHT": number|null,      // FULL invoice total excl. VAT (HT), before any deposit deducted
+ "quoteSupplierHT": number|null,     // in the QUOTE, the per-supplier subtotal HT (excl. VAT) for that same supplier. NOT the global total. Exclude Naboo "Frais de service".
+ "invoiceTTC": number|null,          // FULL gross invoice total TTC (incl. VAT), before any deposit deducted. If only a balance is shown after a deposit, set = net + deposit.
+ "quoteSupplierTTC": number|null,    // the per-supplier subtotal TTC (incl. VAT) in the quote.
+ "invoiceAcompte": number|null,      // deposit already paid on the invoice TTC (positive number), else null
+ "invoiceNet": number|null,          // net / balance still to pay TTC, else null
  "acompteRef": {"numero": string|null, "montantTTC": number|null, "statut": "payé"|"non payé"|null} | null,  // referenced deposit invoice, if any
- "invoiceTotalHT": number|null,      // invoice total excl. VAT (full), else null
  "invoiceTotalTVA": number|null,     // invoice total VAT (full), else null
  "vatDetail": [{"rate": number, "base": number, "amount": number}],  // the invoice VAT breakdown table; [] if none
- "toAdd": [{"desc": string, "amount": number}],     // changes to ADD to the Naboo quote: things on the supplier invoice but missing from (or higher than) the quote. TTC amounts.
- "toRemove": [{"desc": string, "amount": number}],  // changes to REMOVE from the Naboo quote: things in the quote but not on (or lower on) the supplier invoice. TTC amounts.
+ "toAdd": [{"desc": string, "amount": number}],     // changes to ADD to the Naboo quote (services on the invoice but missing/higher than the quote). Amounts in € HT (excl. VAT).
+ "toRemove": [{"desc": string, "amount": number}],  // changes to REMOVE from the Naboo quote (in the quote but not on/lower on the invoice). Amounts in € HT (excl. VAT).
  "note": string                      // one short sentence (language of the documents) explaining the gap
 }
 Rules: amounts in euros, decimals with a dot (e.g. 4768.62). French (1 234,56) or US (1,234.56) inputs both normalise to a plain number. NEVER invent a figure that is absent from the document — use null. Fill invoiceAcompte AND invoiceNet whenever a deposit is deducted.
 Commission: supplier invoices never mention Naboo's commission. Ignore commission entirely — compare the supplier invoice total against the quote total as-is.
-Finding the amounts (try hard before returning null):
-- quoteSupplierTTC: if the quote shows an explicit per-supplier subtotal, use it. If the quote has only ONE supplier or no per-supplier breakdown, use the quote's grand total TTC, excluding any Naboo "Frais de service" / "Venue finding" line. Return null only if the quote has no total at all.
-- invoiceTTC: if no single grand total is clearly labelled, use the largest TTC total shown on the invoice (reconstructing net + deposit if needed).
-toAdd / toRemove must reconcile the gap: sum(toAdd amounts) − sum(toRemove amounts) must equal (invoiceTTC − quoteSupplierTTC). If both totals match, return [] and []. If the documents DO expose the differing line items, list them specifically (e.g. an extra "Team Quest" billed = add). If they do NOT expose enough detail to itemise, return a single explanatory item for the net difference (e.g. toAdd:[{"desc":"Higher than quoted (see invoice detail)","amount": <gap>}]). Never invent line amounts that aren't supported by the documents.
+Finding the amounts (try hard before returning null — fill BOTH the HT and TTC values for each side):
+- Quote (quoteSupplierHT / quoteSupplierTTC): if the quote shows an explicit per-supplier subtotal, use it. If the quote has only ONE supplier or no per-supplier breakdown, use the quote's grand total, excluding any Naboo "Frais de service" / "Venue finding" line. Return null only if the quote has no total at all.
+- Invoice (invoiceTotalHT / invoiceTTC): if no single grand total is clearly labelled, use the largest total shown on the invoice (reconstructing net + deposit if needed). HT usually appears in the VAT breakdown table or a "Total HT" line.
+toAdd / toRemove must reconcile the HT gap: sum(toAdd amounts) − sum(toRemove amounts) must equal (invoiceTotalHT − quoteSupplierHT), all in € HT. If totals match, return [] and [].
+Each desc must NAME the specific service/line AND the concrete adjustment, including quantity changes when visible. Examples: "Pause gourmande — +5 participants", "Team Quest — new activity not in the quote", "Dîner gala — 60→55 covers", "Régisseur plateau — added". Avoid vague labels like "supplement" alone.
+If the documents DO expose the differing line items, list them specifically. If they do NOT expose enough detail to itemise, return a single net item (e.g. toAdd:[{"desc":"Higher than quoted — see invoice detail","amount": <HT gap>}]). Never invent line amounts not supported by the documents.
 
 === QUOTE (devis) ===
 ${quoteText}
@@ -83,8 +86,8 @@ function validate(o) {
 
 // Does the add/remove breakdown reconcile to the gap?
 function reconcileCheck(o) {
-  if (num(o.invoiceTTC) == null || num(o.quoteSupplierTTC) == null) return { ok: true, gap: null };
-  const gap = o.invoiceTTC - o.quoteSupplierTTC;
+  if (num(o.invoiceTotalHT) == null || num(o.quoteSupplierHT) == null) return { ok: true, gap: null };
+  const gap = o.invoiceTotalHT - o.quoteSupplierHT;
   const add = Array.isArray(o.toAdd) ? o.toAdd.reduce((s, x) => s + (num(x.amount) || 0), 0) : 0;
   const rem = Array.isArray(o.toRemove) ? o.toRemove.reduce((s, x) => s + (num(x.amount) || 0), 0) : 0;
   const ok = Math.abs((add - rem) - gap) <= Math.max(0.02, Math.abs(gap) * 0.005);
@@ -109,8 +112,8 @@ export default async function handler(req, res) {
     let out = await callModel(HAIKU, key, prompt);
     let usedModel = 'haiku';
     let warnings = validate(out);
-    const inv = num(out.invoiceTTC), q = num(out.quoteSupplierTTC);
-    const matches = inv != null && q != null && Math.abs(inv - q) < 0.01;
+    const invHT = num(out.invoiceTotalHT), qHT = num(out.quoteSupplierHT);
+    const matches = invHT != null && qHT != null && Math.abs(invHT - qHT) < 0.01;
 
     // 2) Escalate to Sonnet when amounts don't match, Haiku is internally inconsistent, or the breakdown doesn't reconcile
     if (!matches || warnings.length > 0 || !reconcileCheck(out).ok) {
