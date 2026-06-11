@@ -74,14 +74,17 @@ function validate(o) {
     w.push(`Deposit + balance (${r2(o.invoiceAcompte + o.invoiceNet)}) ≠ full TTC (${o.invoiceTTC})`);
   if (o.acompteRef && num(o.acompteRef.montantTTC) != null && num(o.invoiceAcompte) != null && !close(o.acompteRef.montantTTC, o.invoiceAcompte))
     w.push(`Deposit deducted (${o.invoiceAcompte}) ≠ referenced deposit invoice (${o.acompteRef.montantTTC})`);
-  // add/remove must reconcile the gap
-  if (num(o.invoiceTTC) != null && num(o.quoteSupplierTTC) != null) {
-    const add = Array.isArray(o.toAdd) ? o.toAdd.reduce((s, x) => s + (num(x.amount) || 0), 0) : 0;
-    const rem = Array.isArray(o.toRemove) ? o.toRemove.reduce((s, x) => s + (num(x.amount) || 0), 0) : 0;
-    const gap = o.invoiceTTC - o.quoteSupplierTTC;
-    if (!close(add - rem, gap)) w.push(`Add/remove net (${r2(add - rem)}) ≠ gap (${r2(gap)})`);
-  }
   return w;
+}
+
+// Does the add/remove breakdown reconcile to the gap?
+function reconcileCheck(o) {
+  if (num(o.invoiceTTC) == null || num(o.quoteSupplierTTC) == null) return { ok: true, gap: null };
+  const gap = o.invoiceTTC - o.quoteSupplierTTC;
+  const add = Array.isArray(o.toAdd) ? o.toAdd.reduce((s, x) => s + (num(x.amount) || 0), 0) : 0;
+  const rem = Array.isArray(o.toRemove) ? o.toRemove.reduce((s, x) => s + (num(x.amount) || 0), 0) : 0;
+  const ok = Math.abs((add - rem) - gap) <= Math.max(0.02, Math.abs(gap) * 0.005);
+  return { ok, gap };
 }
 
 export default async function handler(req, res) {
@@ -105,11 +108,22 @@ export default async function handler(req, res) {
     const inv = num(out.invoiceTTC), q = num(out.quoteSupplierTTC);
     const matches = inv != null && q != null && Math.abs(inv - q) < 0.01;
 
-    // 2) Escalate to Sonnet when amounts don't match OR Haiku's numbers are internally inconsistent
-    if (!matches || warnings.length > 0) {
+    // 2) Escalate to Sonnet when amounts don't match, Haiku is internally inconsistent, or the breakdown doesn't reconcile
+    if (!matches || warnings.length > 0 || !reconcileCheck(out).ok) {
       try { const s = await callModel(SONNET, key, prompt); out = s; usedModel = 'sonnet'; warnings = validate(out); }
       catch (e) { /* keep Haiku result if Sonnet fails */ }
     }
+
+    // 3) Guardrail: the displayed add/remove MUST reconcile to the gap. If it doesn't, drop the
+    //    unreliable itemisation and show a single net-adjustment line equal to the gap (never overshoot).
+    const recon = reconcileCheck(out);
+    if (!recon.ok && recon.gap != null) {
+      if (recon.gap > 0.01) { out.toAdd = [{ desc: 'Net difference — could not itemise reliably, check the invoice detail', amount: r2(recon.gap) }]; out.toRemove = []; }
+      else if (recon.gap < -0.01) { out.toRemove = [{ desc: 'Net difference — could not itemise reliably, check the invoice detail', amount: r2(-recon.gap) }]; out.toAdd = []; }
+      else { out.toAdd = []; out.toRemove = []; }
+      warnings.push(`Could not itemise the difference reliably — showing the net adjustment only (${r2(recon.gap)} €).`);
+    }
+
     out.model = usedModel;
     out.warnings = warnings;
     res.status(200).json(out);
