@@ -157,32 +157,49 @@ export default async function handler(req, res) {
   const prompt = buildPrompt(quoteText, invoiceText, lang);
 
   try {
-    // Single Sonnet pass — best accuracy on complex invoices, one round-trip (avoids the timeout).
+    // 1) Single Sonnet pass — best accuracy on complex invoices, one round-trip (avoids the timeout).
     let out = await callModel(SONNET, key, prompt);
-    let usedModel = 'sonnet';
-    let warnings = validate(out);
-
-    // Guardrail: the displayed add/remove MUST reconcile to the gap. Rather than discard the
-    //    itemisation the model found, KEEP the identified items and append a balancing residual line so
-    //    the totals always tie out. Only fall back to a pure net line if the model found nothing useful.
     if (!Array.isArray(out.toAdd)) out.toAdd = [];
     if (!Array.isArray(out.toRemove)) out.toRemove = [];
-    const recon = reconcileCheck(out);
+
+    // 2) Self-correction: the itemised additions − removals MUST equal the gap on their own.
+    //    If they don't, give the model exactly one corrective pass with the numbers, so it can find
+    //    the missing/over-counted lines itself — we NEVER inject a fake balancing line.
+    let recon = reconcileCheck(out);
     if (!recon.ok && recon.gap != null) {
-      const haveItems = out.toAdd.length + out.toRemove.length > 0;
-      const residualHT = r2(recon.gap - (sumHT(out.toAdd) - sumHT(out.toRemove)));
-      const gapTTC = (num(out.invoiceTTC) != null && num(out.quoteSupplierTTC) != null) ? out.invoiceTTC - out.quoteSupplierTTC : null;
-      const residualTTC = gapTTC != null ? r2(gapTTC - (sumTTC(out.toAdd) - sumTTC(out.toRemove))) : residualHT;
-      const label = haveItems ? 'Other differences — not itemised, check the invoice detail'
-                              : 'Higher/lower than quoted — see invoice detail';
-      if (residualHT > 0.01) out.toAdd.push({ desc: label, ht: residualHT, ttc: residualTTC });
-      else if (residualHT < -0.01) out.toRemove.push({ desc: label, ht: r2(-residualHT), ttc: r2(-residualTTC) });
-      warnings.push(haveItems
-        ? `Itemisation didn't fully tie out — added a balancing line of ${residualHT} € (excl. VAT). Check the invoice detail.`
-        : `Could not itemise the difference — showing the net adjustment only.`);
+      const itemsNet = r2(sumHT(out.toAdd) - sumHT(out.toRemove));
+      const off = r2(recon.gap - itemsNet);
+      const correction = prompt + `
+
+=== CORRECTION REQUIRED ===
+Your previous toAdd/toRemove summed to ${itemsNet} € HT, but they MUST sum to EXACTLY ${r2(recon.gap)} € HT, which is (invoiceTotalHT ${num(out.invoiceTotalHT)} − quoteSupplierHT ${num(out.quoteSupplierHT)}). You are off by ${off} € HT.
+Re-examine line by line and fix it:
+- A line is an ADDITION only if that exact service/quantity is ABSENT from the quote. If a service appears in BOTH the quote and the invoice, do NOT list its full amount — list only the DELTA (price or quantity change). Counting full invoice lines that were already quoted is the usual cause of over-counting.
+- Likewise capture every service that is in the quote but reduced/removed on the invoice.
+Return corrected toAdd/toRemove whose HT amounts sum to exactly ${r2(recon.gap)} €. Do NOT add any vague catch-all / "other differences" line.`;
+      try {
+        const c = await callModel(SONNET, key, correction);
+        if (Array.isArray(c.toAdd) && Array.isArray(c.toRemove)) {
+          // carry over the totals/supplier fields from the first pass if the retry dropped them
+          c.invoiceTotalHT = num(c.invoiceTotalHT) != null ? c.invoiceTotalHT : out.invoiceTotalHT;
+          c.quoteSupplierHT = num(c.quoteSupplierHT) != null ? c.quoteSupplierHT : out.quoteSupplierHT;
+          c.invoiceTTC = num(c.invoiceTTC) != null ? c.invoiceTTC : out.invoiceTTC;
+          c.quoteSupplierTTC = num(c.quoteSupplierTTC) != null ? c.quoteSupplierTTC : out.quoteSupplierTTC;
+          out = c;
+        }
+      } catch (e) { /* keep first pass if the retry fails */ }
+      recon = reconcileCheck(out);
     }
 
-    out.model = usedModel;
+    let warnings = validate(out);
+
+    // 3) Honest reconciliation flag — NO fake line. If the items still don't tie out, say so plainly.
+    if (!recon.ok && recon.gap != null) {
+      const itemsNet = r2(sumHT(out.toAdd) - sumHT(out.toRemove));
+      warnings.push(`Inconsistency: the itemised changes sum to ${itemsNet} € HT but the actual gap (invoice − quote) is ${r2(recon.gap)} € HT — a difference of ${r2(recon.gap - itemsNet)} €. Some lines are missing or over-counted; review the invoice detail. The headline gap above is correct; the line-by-line split is not yet complete.`);
+    }
+
+    out.model = 'sonnet';
     out.warnings = warnings;
     res.status(200).json(out);
   } catch (e) {
