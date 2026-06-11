@@ -68,6 +68,7 @@
   @media(max-width:560px){.nums{grid-template-columns:1fr}}
   .numcard{border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px}
   .numcard .k{font-size:12px;color:var(--muted-fg)} .numcard .v{font-size:20px;font-weight:600;font-variant-numeric:tabular-nums;margin-top:4px}
+  .numcard .v .vunit{font-size:12px;color:var(--muted-fg);font-weight:600} .numcard .v .vsub{font-size:13px;color:var(--muted-fg);font-weight:400}
   .supplier{margin-top:18px;font-size:14px} .supplier b{font-weight:600}
   .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(31,35,33,.25);border-top-color:var(--fg);border-radius:50%;animation:spin .7s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
@@ -212,7 +213,7 @@ const I18N={
     sub:'Drop the Naboo quote and the supplier invoice (one or more PDFs each), then compare.',
     quote:'Naboo Quote', inv:'Supplier Invoice', hint:'Drag PDFs here or click — multiple files allowed',
     compare:'Compare', back:'New comparison',
-    resultLbl:'Result', invK:'Supplier invoice (TTC)', quoteK:'Quoted for this supplier (TTC)',
+    resultLbl:'Result', invK:'Supplier invoice', quoteK:'Quoted for this supplier',
     analyzing:'Analyzing…', match:'✓ Amounts match', gapHi:'Invoice is {x} higher than quoted', gapLo:'Invoice is {x} lower than quoted',
     supplier:'Supplier:', deposit:'Deposit (per supplier invoice):', balance:'Balance (per supplier invoice):',
     notFoundInv:'Couldn’t read the supplier invoice total — check that PDF is text-based (not a scan).',
@@ -222,7 +223,7 @@ const I18N={
     copySummary:'Copy summary', csv:'CSV', copied:'Copied!', manualNote:'Entered manually.',
     warnTitle:'Consistency checks flagged something to review:', print:'Print', acompteRefLbl:'Deposit invoice',
     scannedManual:'No text layer found (scanned PDF?). Enter the amounts manually below.',
-    toAdd:'To add to the Naboo quote', toRemove:'To remove from the Naboo quote', descCol:'Description', amtTTC:'Amount TTC (€)', totalAdd:'Total to add', totalRem:'Total to remove', none:'Nothing.',
+    toAdd:'To add to the Naboo quote', toRemove:'To remove from the Naboo quote', descCol:'Description', amtTTC:'Amount HT (€)', totalAdd:'Total to add', totalRem:'Total to remove', none:'Nothing.',
     foot:'The amounts are read by AI from the documents’ TTC totals (per supplier in the quote, grand total on the invoice). Always sanity-check before acting. Scanned PDFs without a text layer are not supported.',
     errFiles:'Add at least one PDF on each side (Naboo quote and supplier invoice).',
     errText:'No text layer found in one of the files (scanned PDF?). OCR is not supported.',
@@ -233,7 +234,7 @@ const I18N={
     sub:'Déposez le devis Naboo et la facture fournisseur (un ou plusieurs PDF chacun), puis comparez.',
     quote:'Devis Naboo', inv:'Facture fournisseur', hint:'Glissez les PDF ici ou cliquez — plusieurs fichiers possibles',
     compare:'Comparer', back:'Nouvelle comparaison',
-    resultLbl:'Résultat', invK:'Facture fournisseur (TTC)', quoteK:'Devis pour ce fournisseur (TTC)',
+    resultLbl:'Résultat', invK:'Facture fournisseur', quoteK:'Devis pour ce fournisseur',
     analyzing:'Analyse…', match:'✓ Les montants correspondent', gapHi:'La facture est {x} plus élevée que le devis', gapLo:'La facture est {x} plus basse que le devis',
     supplier:'Fournisseur :', deposit:'Acompte (selon facture fournisseur) :', balance:'Solde (selon facture fournisseur) :',
     notFoundInv:'Impossible de lire le total de la facture fournisseur — vérifiez que ce PDF est en texte (pas un scan).',
@@ -243,7 +244,7 @@ const I18N={
     copySummary:'Copier le résumé', csv:'CSV', copied:'Copié !', manualNote:'Saisie manuelle.',
     warnTitle:'Contrôles de cohérence à vérifier :', print:'Imprimer', acompteRefLbl:'Facture d’acompte',
     scannedManual:'Couche texte introuvable (PDF scanné ?). Saisissez les montants manuellement ci-dessous.',
-    toAdd:'À ajouter au devis Naboo', toRemove:'À retirer du devis Naboo', descCol:'Description', amtTTC:'Montant TTC (€)', totalAdd:'Total à ajouter', totalRem:'Total à retirer', none:'Rien.',
+    toAdd:'À ajouter au devis Naboo', toRemove:'À retirer du devis Naboo', descCol:'Description', amtTTC:'Montant HT (€)', totalAdd:'Total à ajouter', totalRem:'Total à retirer', none:'Rien.',
     foot:'Les montants sont lus par IA depuis les totaux TTC des documents (par fournisseur dans le devis, total général sur la facture). Vérifiez toujours avant d’agir. Les PDF scannés sans couche texte ne sont pas pris en charge.',
     errFiles:'Ajoutez au moins un PDF de chaque côté (devis Naboo et facture fournisseur).',
     errText:'Couche texte introuvable dans un fichier (PDF scanné ?). L’OCR n’est pas pris en charge.',
@@ -345,11 +346,18 @@ $('btnCompare').addEventListener('click',async()=>{
 });
 $('btnBack').addEventListener('click',()=>{ $('resultView').classList.add('hide'); $('importView').classList.remove('hide'); });
 
+function cardPair(htv,ttcv){
+  if(htv!=null) return `${eur(htv)} <span class="vunit">HT</span>${ttcv!=null?`<span class="vsub"> (${eur(ttcv)} TTC)</span>`:''}`;
+  if(ttcv!=null) return `${eur(ttcv)} <span class="vunit">TTC</span>`;
+  return '—';
+}
 function renderResult(d){
-  const inv=(typeof d.invoiceTTC==='number')?d.invoiceTTC:null;
-  const q=(typeof d.quoteSupplierTTC==='number')?d.quoteSupplierTTC:null;
-  $('invVal').textContent=inv==null?'—':eur(inv);
-  $('quoteVal').textContent=q==null?'—':eur(q);
+  const invHT=(typeof d.invoiceTotalHT==='number')?d.invoiceTotalHT:null;
+  const qHT=(typeof d.quoteSupplierHT==='number')?d.quoteSupplierHT:null;
+  const invTTC=(typeof d.invoiceTTC==='number')?d.invoiceTTC:null;
+  const qTTC=(typeof d.quoteSupplierTTC==='number')?d.quoteSupplierTTC:null;
+  $('invVal').innerHTML=cardPair(invHT,invTTC);
+  $('quoteVal').innerHTML=cardPair(qHT,qTTC);
   $('supplierLine').innerHTML=d.supplier?`${t('supplier')} <b>${esc(d.supplier)}</b>`:'';
   const ac=(typeof d.invoiceAcompte==='number')?d.invoiceAcompte:null;
   const net=(typeof d.invoiceNet==='number')?d.invoiceNet:null;
@@ -372,13 +380,17 @@ function renderResult(d){
   $('breakdown').classList.toggle('hide', toAdd.length===0 && toRemove.length===0);
   $('resultNote').textContent=d.note||'';
   const card=$('resultCard'); card.classList.remove('ok','bad','warn');
-  if(inv==null||q==null){ card.classList.add('warn'); $('resultBig').textContent=(inv==null&&q==null)?t('notFoundBoth'):(inv==null?t('notFoundInv'):t('notFoundQuote')); }
-  else{
-    const gap=round2(inv-q);
-    if(Math.abs(gap)<0.01){ card.classList.add('ok'); $('resultBig').textContent=t('match')+' — '+eur(inv)+' TTC'; }
-    else if(gap>0){ card.classList.add('bad'); $('resultBig').textContent=t('gapHi').replace('{x}',eur(gap)); }
-    else{ card.classList.add('bad'); $('resultBig').textContent=t('gapLo').replace('{x}',eur(Math.abs(gap))); }
-  }
+  const haveInv=(invHT!=null||invTTC!=null), haveQuote=(qHT!=null||qTTC!=null);
+  if(!haveInv||!haveQuote){ card.classList.add('warn'); $('resultBig').textContent=(!haveInv&&!haveQuote)?t('notFoundBoth'):(!haveInv?t('notFoundInv'):t('notFoundQuote')); resetFeedback(); return; }
+  const useHT=(invHT!=null&&qHT!=null);
+  const pInv=useHT?invHT:invTTC, pQuote=useHT?qHT:qTTC;
+  const gap=round2(pInv-pQuote);
+  const gapTTC=(invTTC!=null&&qTTC!=null)?round2(invTTC-qTTC):null;
+  const valStr=useHT?(eur(pInv)+' HT'+(invTTC!=null?` (${eur(invTTC)} TTC)`:'')):(eur(pInv)+' TTC');
+  const gapBoth=a=> useHT?(eur(a)+' HT'+(gapTTC!=null?` (${eur(Math.abs(gapTTC))} TTC)`:'')):(eur(a)+' TTC');
+  if(Math.abs(gap)<0.01){ card.classList.add('ok'); $('resultBig').textContent=t('match')+' — '+valStr; }
+  else if(gap>0){ card.classList.add('bad'); $('resultBig').textContent=t('gapHi').replace('{x}',gapBoth(gap)); }
+  else{ card.classList.add('bad'); $('resultBig').textContent=t('gapLo').replace('{x}',gapBoth(Math.abs(gap))); }
   resetFeedback();
 }
 
@@ -407,35 +419,41 @@ $('fb_send').addEventListener('click',()=>{ const v=$('fb_text').value.trim(); i
 
 /* ===== export ===== */
 function resultSummary(){
-  const r=lastResult||{}; const inv=(typeof r.invoiceTTC==='number')?r.invoiceTTC:null; const q=(typeof r.quoteSupplierTTC==='number')?r.quoteSupplierTTC:null;
-  const gap=(inv!=null&&q!=null)?round2(inv-q):null;
-  const verdict=gap==null?'—':(Math.abs(gap)<0.01?t('match'):(gap>0?t('gapHi'):t('gapLo')).replace('{x}',eur(Math.abs(gap))));
-  return {r,inv,q,gap,verdict};
+  const r=lastResult||{};
+  const invHT=(typeof r.invoiceTotalHT==='number')?r.invoiceTotalHT:null, qHT=(typeof r.quoteSupplierHT==='number')?r.quoteSupplierHT:null;
+  const invTTC=(typeof r.invoiceTTC==='number')?r.invoiceTTC:null, qTTC=(typeof r.quoteSupplierTTC==='number')?r.quoteSupplierTTC:null;
+  const useHT=(invHT!=null&&qHT!=null); const pInv=useHT?invHT:invTTC, pQuote=useHT?qHT:qTTC;
+  const gap=(pInv!=null&&pQuote!=null)?round2(pInv-pQuote):null;
+  const gapTTC=(invTTC!=null&&qTTC!=null)?round2(invTTC-qTTC):null;
+  let verdict='—';
+  if(gap!=null){ if(Math.abs(gap)<0.01) verdict=t('match'); else { const a=eur(Math.abs(gap))+(useHT?(' HT'+(gapTTC!=null?` (${eur(Math.abs(gapTTC))} TTC)`:'')):' TTC'); verdict=(gap>0?t('gapHi'):t('gapLo')).replace('{x}',a); } }
+  return {r,invHT,qHT,invTTC,qTTC,useHT,gap,gapTTC,verdict};
 }
 $('btnCopy').addEventListener('click',()=>{
-  const {r,inv,q,verdict}=resultSummary();
+  const {r,invHT,qHT,invTTC,qTTC,verdict}=resultSummary();
   const add=Array.isArray(r.toAdd)?r.toAdd:[], rem=Array.isArray(r.toRemove)?r.toRemove:[];
-  const txt=['Quotes adjustments', r.supplier?(t('supplier')+' '+r.supplier):'', t('invK')+' '+eur(inv), t('quoteK')+' '+eur(q),
+  const pairTxt=(h,tc)=> h!=null?(eur(h)+' HT'+(tc!=null?` (${eur(tc)} TTC)`:'')):(tc!=null?eur(tc)+' TTC':'—');
+  const txt=['Quotes adjustments', r.supplier?(t('supplier')+' '+r.supplier):'', t('invK')+': '+pairTxt(invHT,invTTC), t('quoteK')+': '+pairTxt(qHT,qTTC),
     (typeof r.invoiceAcompte==='number')?(t('deposit')+' '+eur(r.invoiceAcompte)+((typeof r.invoiceNet==='number')?(' · '+t('balance')+' '+eur(r.invoiceNet)):'')):'', verdict,
-    add.length?(t('toAdd')+':\n'+add.map(x=>`  + ${x.desc}: ${eur(x.amount)}`).join('\n')):'',
-    rem.length?(t('toRemove')+':\n'+rem.map(x=>`  - ${x.desc}: ${eur(x.amount)}`).join('\n')):''
+    add.length?(t('toAdd')+':\n'+add.map(x=>`  + ${x.desc}: ${eur(x.amount)} HT`).join('\n')):'',
+    rem.length?(t('toRemove')+':\n'+rem.map(x=>`  - ${x.desc}: ${eur(x.amount)} HT`).join('\n')):''
   ].filter(Boolean).join('\n');
   navigator.clipboard.writeText(txt).then(()=>{ const b=$('h_copy'); const o=b.textContent; b.textContent=t('copied'); setTimeout(()=>b.textContent=o,1500); }).catch(()=>{});
 });
 $('btnPrint').addEventListener('click',()=>window.print());
 $('btnCsv').addEventListener('click',()=>{
-  const {r,inv,q,gap,verdict}=resultSummary();
+  const {r,invHT,qHT,invTTC,qTTC,gap,verdict}=resultSummary();
   const add=Array.isArray(r.toAdd)?r.toAdd:[], rem=Array.isArray(r.toRemove)?r.toRemove:[];
-  const rows=[['Section','Description','Amount TTC']];
-  rows.push(['Supplier', r.supplier||'', '']);
-  rows.push(['Invoice TTC','', inv??'']);
-  rows.push(['Quoted TTC','', q??'']);
-  rows.push(['Gap','', gap??'']);
-  rows.push(['Verdict', verdict, '']);
-  if(typeof r.invoiceAcompte==='number') rows.push(['Deposit','', r.invoiceAcompte]);
-  if(typeof r.invoiceNet==='number') rows.push(['Balance','', r.invoiceNet]);
-  add.forEach(x=>rows.push(['ADD', x.desc, x.amount]));
-  rem.forEach(x=>rows.push(['REMOVE', x.desc, x.amount]));
+  const rows=[['Section','Description','Amount HT','Amount TTC']];
+  rows.push(['Supplier', r.supplier||'', '', '']);
+  rows.push(['Invoice','', invHT??'', invTTC??'']);
+  rows.push(['Quoted','', qHT??'', qTTC??'']);
+  rows.push(['Gap (HT)','', gap??'', '']);
+  rows.push(['Verdict', verdict, '', '']);
+  if(typeof r.invoiceAcompte==='number') rows.push(['Deposit (invoice)','', '', r.invoiceAcompte]);
+  if(typeof r.invoiceNet==='number') rows.push(['Balance (invoice)','', '', r.invoiceNet]);
+  add.forEach(x=>rows.push(['ADD', x.desc, x.amount, '']));
+  rem.forEach(x=>rows.push(['REMOVE', x.desc, x.amount, '']));
   const csv=rows.map(row=>row.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(';')).join('\n');
   const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='quote-adjustment.csv'; a.click();
