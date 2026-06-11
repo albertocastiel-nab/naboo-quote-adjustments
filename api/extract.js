@@ -25,6 +25,10 @@ Extract, as STRICT minified JSON (no prose around it):
  "note": string                      // one short sentence (language of the documents) explaining the gap
 }
 Rules: amounts in euros, decimals with a dot (e.g. 4768.62). French (1 234,56) or US (1,234.56) inputs both normalise to a plain number. NEVER invent a figure that is absent from the document — use null. Fill invoiceAcompte AND invoiceNet whenever a deposit is deducted.
+Commission: supplier invoices never mention Naboo's commission. Ignore commission entirely — compare the supplier invoice total against the quote total as-is.
+Finding the amounts (try hard before returning null):
+- quoteSupplierTTC: if the quote shows an explicit per-supplier subtotal, use it. If the quote has only ONE supplier or no per-supplier breakdown, use the quote's grand total TTC, excluding any Naboo "Frais de service" / "Venue finding" line. Return null only if the quote has no total at all.
+- invoiceTTC: if no single grand total is clearly labelled, use the largest TTC total shown on the invoice (reconstructing net + deposit if needed).
 toAdd / toRemove must reconcile the gap: sum(toAdd amounts) − sum(toRemove amounts) must equal (invoiceTTC − quoteSupplierTTC). If both totals match, return [] and []. If the documents DO expose the differing line items, list them specifically (e.g. an extra "Team Quest" billed = add). If they do NOT expose enough detail to itemise, return a single explanatory item for the net difference (e.g. toAdd:[{"desc":"Higher than quoted (see invoice detail)","amount": <gap>}]). Never invent line amounts that aren't supported by the documents.
 
 === QUOTE (devis) ===
