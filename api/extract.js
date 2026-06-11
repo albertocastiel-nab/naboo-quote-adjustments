@@ -11,6 +11,7 @@ const SONNET = 'claude-sonnet-4-6';
 function buildPrompt(quoteText, invoiceText, lang) {
   const L = lang === 'fr' ? 'French' : 'English';
   return `You reconcile a Naboo client quote (devis) against a supplier invoice (facture).
+CRITICAL OUTPUT RULE: respond with ONLY the single minified JSON object specified below — no prose, no markdown, no tables, no explanation, no leading text. Do ALL of your line-by-line reasoning SILENTLY and emit only the final JSON. Your entire response must start with { and end with }.
 Write the "note" field AND every toAdd/toRemove "desc" in ${L}, regardless of the documents' language. Use plain numbers only — do not write the tax abbreviations "HT" or "TTC" inside desc/note text.
 Naboo is a transparent intermediary: the quote can bundle one or more SUPPLIERS plus Naboo's own line called "Frais de service" / "Venue finding" (Naboo's margin, NOT a supplier).
 
@@ -35,7 +36,7 @@ Commission: supplier invoices never mention Naboo's commission. Ignore commissio
 Finding the amounts (try hard before returning null — fill BOTH the HT and TTC values for each side):
 - Quote (quoteSupplierHT / quoteSupplierTTC): if the quote shows an explicit per-supplier subtotal, use it. If the quote has only ONE supplier or no per-supplier breakdown, use the quote's grand total, excluding any Naboo "Frais de service" / "Venue finding" line. Return null only if the quote has no total at all.
 - Invoice (invoiceTotalHT / invoiceTTC): if no single grand total is clearly labelled, use the largest total shown on the invoice (reconstructing net + deposit if needed). HT usually appears in the VAT breakdown table or a "Total HT" line.
-ITEMISING THE DIFFERENCES (this is the most important output — work it line by line, do NOT shortcut to a single net figure):
+ITEMISING THE DIFFERENCES (the most important content — reason through these steps SILENTLY in your head; do NOT write them out; only the resulting toAdd/toRemove arrays go in the JSON):
 STEP A — Extract the INVOICE line items. For each line capture: date (if the invoice is laid out by day), description, quantity, unit price HT, line total HT, line total TTC, and the line's VAT rate if the document states it.
 STEP B — Extract the QUOTE line items for this supplier the same way (description, quantity, unit price, totals).
 STEP C — Match invoice lines to quote lines by service/description (and by day where relevant), then classify EVERY difference:
@@ -59,14 +60,26 @@ async function callModel(model, key, prompt) {
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
-    body: JSON.stringify({ model, max_tokens: 2000, temperature: 0, messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({
+      model, max_tokens: 3000, temperature: 0,
+      messages: [
+        { role: 'user', content: prompt },
+        { role: 'assistant', content: '{' }   // prefill: forces the model to continue a JSON object, no prose
+      ]
+    })
   });
   if (!r.ok) { const detail = await r.text(); const e = new Error('LLM_ERROR'); e.detail = detail.slice(0, 500); e.status = r.status; throw e; }
   const data = await r.json();
   let txt = (data.content && data.content[0] && data.content[0].text || '').trim();
+  // The prefilled "{" is not echoed in the response, so add it back.
+  if (!txt.startsWith('{')) txt = '{' + txt;
   txt = txt.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
   let parsed;
-  try { parsed = JSON.parse(txt); } catch (e) { const m = txt.match(/\{[\s\S]*\}/); parsed = m ? JSON.parse(m[0]) : null; }
+  try { parsed = JSON.parse(txt); }
+  catch (e) {
+    const m = txt.match(/\{[\s\S]*\}/);
+    try { parsed = m ? JSON.parse(m[0]) : null; } catch (e2) { parsed = null; }
+  }
   if (!parsed) { const e = new Error('BAD_JSON'); e.detail = txt.slice(0, 300); throw e; }
   return parsed;
 }
