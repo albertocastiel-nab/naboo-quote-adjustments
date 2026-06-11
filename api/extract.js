@@ -20,9 +20,12 @@ Extract, as STRICT minified JSON (no prose around it):
  "invoiceTotalHT": number|null,      // invoice total excl. VAT (full), else null
  "invoiceTotalTVA": number|null,     // invoice total VAT (full), else null
  "vatDetail": [{"rate": number, "base": number, "amount": number}],  // the invoice VAT breakdown table; [] if none
- "note": string                      // one short sentence (language of the documents) explaining the match
+ "toAdd": [{"desc": string, "amount": number}],     // changes to ADD to the Naboo quote: things on the supplier invoice but missing from (or higher than) the quote. TTC amounts.
+ "toRemove": [{"desc": string, "amount": number}],  // changes to REMOVE from the Naboo quote: things in the quote but not on (or lower on) the supplier invoice. TTC amounts.
+ "note": string                      // one short sentence (language of the documents) explaining the gap
 }
 Rules: amounts in euros, decimals with a dot (e.g. 4768.62). French (1 234,56) or US (1,234.56) inputs both normalise to a plain number. NEVER invent a figure that is absent from the document — use null. Fill invoiceAcompte AND invoiceNet whenever a deposit is deducted.
+toAdd / toRemove must reconcile the gap: sum(toAdd amounts) − sum(toRemove amounts) must equal (invoiceTTC − quoteSupplierTTC). If both totals match, return [] and []. If the documents DO expose the differing line items, list them specifically (e.g. an extra "Team Quest" billed = add). If they do NOT expose enough detail to itemise, return a single explanatory item for the net difference (e.g. toAdd:[{"desc":"Higher than quoted (see invoice detail)","amount": <gap>}]). Never invent line amounts that aren't supported by the documents.
 
 === QUOTE (devis) ===
 ${quoteText}
@@ -71,6 +74,13 @@ function validate(o) {
     w.push(`Deposit + balance (${r2(o.invoiceAcompte + o.invoiceNet)}) ≠ full TTC (${o.invoiceTTC})`);
   if (o.acompteRef && num(o.acompteRef.montantTTC) != null && num(o.invoiceAcompte) != null && !close(o.acompteRef.montantTTC, o.invoiceAcompte))
     w.push(`Deposit deducted (${o.invoiceAcompte}) ≠ referenced deposit invoice (${o.acompteRef.montantTTC})`);
+  // add/remove must reconcile the gap
+  if (num(o.invoiceTTC) != null && num(o.quoteSupplierTTC) != null) {
+    const add = Array.isArray(o.toAdd) ? o.toAdd.reduce((s, x) => s + (num(x.amount) || 0), 0) : 0;
+    const rem = Array.isArray(o.toRemove) ? o.toRemove.reduce((s, x) => s + (num(x.amount) || 0), 0) : 0;
+    const gap = o.invoiceTTC - o.quoteSupplierTTC;
+    if (!close(add - rem, gap)) w.push(`Add/remove net (${r2(add - rem)}) ≠ gap (${r2(gap)})`);
+  }
   return w;
 }
 
