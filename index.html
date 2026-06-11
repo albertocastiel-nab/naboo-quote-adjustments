@@ -150,13 +150,6 @@
     <div class="bar">
       <button class="btn" id="btnCompare">Compare</button>
     </div>
-    <div style="text-align:center;margin-top:14px"><button class="linklike" id="manualToggle" type="button">Enter amounts manually</button></div>
-    <div class="manual-panel hide" id="manualPanel">
-      <div><label class="mlabel" id="m_invK">Invoice total (TTC)</label><input class="minput" type="number" step="0.01" id="mInvoice" placeholder="4768.62"></div>
-      <div><label class="mlabel" id="m_quoteK">Quoted for this supplier (TTC)</label><input class="minput" type="number" step="0.01" id="mQuote" placeholder="4768.62"></div>
-      <div><label class="mlabel" id="m_depK">Deposit already paid (optional)</label><input class="minput" type="number" step="0.01" id="mDeposit" placeholder=""></div>
-      <button class="btn" id="btnManual" style="justify-self:center">Compare</button>
-    </div>
     <div class="err" id="err"></div>
   </section>
 
@@ -181,12 +174,16 @@
     </div>
 
     <div id="breakdown" class="hide">
-      <h2 class="sec add" id="h_toAdd">To add to the Naboo quote</h2>
-      <div class="tablewrap"><table id="tblAdd"><thead><tr><th id="h_d1">Description</th><th class="num" id="h_a1">Amount TTC (€)</th></tr></thead><tbody></tbody>
-        <tfoot><tr><td id="h_t1">Total to add</td><td class="num" id="addSum">—</td></tr></tfoot></table></div>
-      <h2 class="sec rem" id="h_toRemove">To remove from the Naboo quote</h2>
-      <div class="tablewrap"><table id="tblRemove"><thead><tr><th id="h_d2">Description</th><th class="num" id="h_a2">Amount TTC (€)</th></tr></thead><tbody></tbody>
-        <tfoot><tr><td id="h_t2">Total to remove</td><td class="num" id="remSum">—</td></tr></tfoot></table></div>
+      <div id="addBlock">
+        <h2 class="sec add" id="h_toAdd">To add to the Naboo quote</h2>
+        <div class="tablewrap"><table id="tblAdd"><thead><tr><th id="h_d1">Description</th><th class="num" id="h_a1">Amount TTC (€)</th></tr></thead><tbody></tbody>
+          <tfoot><tr><td id="h_t1">Total to add</td><td class="num" id="addSum">—</td></tr></tfoot></table></div>
+      </div>
+      <div id="removeBlock">
+        <h2 class="sec rem" id="h_toRemove">To remove from the Naboo quote</h2>
+        <div class="tablewrap"><table id="tblRemove"><thead><tr><th id="h_d2">Description</th><th class="num" id="h_a2">Amount TTC (€)</th></tr></thead><tbody></tbody>
+          <tfoot><tr><td id="h_t2">Total to remove</td><td class="num" id="remSum">—</td></tr></tfoot></table></div>
+      </div>
     </div>
 
     <div class="feedback" id="feedback">
@@ -257,10 +254,10 @@ function setLang(l){ lang=l; document.documentElement.lang=l;
 function applyStatic(){
   const m={h_title:'title',h_sub:'sub',h_quote:'quote',h_inv:'inv',h_quoteHint:'hint',h_invHint:'hint',
     h_back:'back',h_resultLbl:'resultLbl',h_invK:'invK',h_quoteK:'quoteK',h_foot:'foot',fb_q:'fbQ',
-    manualToggle:'manualToggle',m_invK:'mInvK',m_quoteK:'mQuoteK',m_depK:'mDepK',h_copy:'copySummary',h_csv:'csv',h_print:'print',
+    h_copy:'copySummary',h_csv:'csv',h_print:'print',
     h_toAdd:'toAdd',h_toRemove:'toRemove',h_d1:'descCol',h_a1:'amtTTC',h_t1:'totalAdd',h_d2:'descCol',h_a2:'amtTTC',h_t2:'totalRem'};
   for(const id in m){ const el=$(id); if(el) el.textContent=t(m[id]); }
-  $('btnCompare').textContent=t('compare'); $('btnManual').textContent=t('compare');
+  $('btnCompare').textContent=t('compare');
   $('fb_send').textContent=t('fbSend'); $('fb_text').placeholder=t('fbReason'); $('fb_thanks').textContent=t('fbThanks');
   document.title=t('title');
 }
@@ -330,7 +327,7 @@ $('btnCompare').addEventListener('click',async()=>{
   btn.innerHTML='<span class="spinner"></span> '+t('analyzing');
   try{
     const [quoteText,invoiceText]=await Promise.all([sideText(state.quote),sideText(state.inv)]);
-    if(quoteText.replace(/\s/g,'').length<50||invoiceText.replace(/\s/g,'').length<50){ showErr(t('scannedManual')); $('manualPanel').classList.remove('hide'); return; }
+    if(quoteText.replace(/\s/g,'').length<50||invoiceText.replace(/\s/g,'').length<50){ showErr(t('errText')); return; }
     const resp=await fetch('/api/extract',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({quoteText,invoiceText})});
     const data=await resp.json();
     if(!resp.ok){ showErr(data&&data.error==='NO_KEY'?t('errKey'):t('errGeneric')); return; }
@@ -364,6 +361,8 @@ function renderResult(d){
   else { $('warnBox').classList.add('hide'); $('warnBox').innerHTML=''; }
   const toAdd=Array.isArray(d.toAdd)?d.toAdd:[], toRemove=Array.isArray(d.toRemove)?d.toRemove:[];
   fillList('tblAdd',toAdd,'addSum'); fillList('tblRemove',toRemove,'remSum');
+  $('addBlock').classList.toggle('hide', toAdd.length===0);
+  $('removeBlock').classList.toggle('hide', toRemove.length===0);
   $('breakdown').classList.toggle('hide', toAdd.length===0 && toRemove.length===0);
   $('resultNote').textContent=d.note||'';
   const card=$('resultCard'); card.classList.remove('ok','bad','warn');
@@ -399,17 +398,6 @@ function fbSelect(which){ $('fb_up').classList.toggle('sel',which==='up'); $('fb
 $('fb_up').addEventListener('click',()=>{ fbSelect('up'); $('fb_reason').classList.add('hide'); sendFeedback('good',''); });
 $('fb_down').addEventListener('click',()=>{ fbSelect('down'); $('fb_reason').classList.remove('hide'); $('fb_text').focus(); });
 $('fb_send').addEventListener('click',()=>{ const v=$('fb_text').value.trim(); if(!v){ $('fb_text').focus(); return; } sendFeedback('bad',v); });
-
-/* ===== manual entry fallback ===== */
-$('manualToggle').addEventListener('click',()=>{ $('manualPanel').classList.toggle('hide'); $('err').style.display='none'; });
-$('btnManual').addEventListener('click',()=>{
-  const inv=parseFloat($('mInvoice').value), q=parseFloat($('mQuote').value), dep=parseFloat($('mDeposit').value);
-  if(isNaN(inv)||isNaN(q)){ showErr(t('errFiles')); return; }
-  const d={supplier:null, invoiceTTC:round2(inv), quoteSupplierTTC:round2(q),
-    invoiceAcompte:isNaN(dep)?null:round2(dep), invoiceNet:isNaN(dep)?null:round2(inv-dep), note:t('manualNote')};
-  lastResult=d; renderResult(d);
-  $('importView').classList.add('hide'); $('resultView').classList.remove('hide'); window.scrollTo({top:0,behavior:'smooth'});
-});
 
 /* ===== export ===== */
 function resultSummary(){
